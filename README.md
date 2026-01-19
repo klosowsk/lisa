@@ -3,6 +3,8 @@
 [![npm version](https://img.shields.io/npm/v/smartlisa.svg)](https://www.npmjs.com/package/smartlisa)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+**[Read the blog post: Why I Built Lisa](https://blog.rklosowski.com/why-i-built-lisa-a-project-manager-for-the-age-of-ai-agents/)**
+
 ![Lisa Banner](lisa-banner.jpg)
 
 *Lisa keeps it organized. The Ralphs get it done.*

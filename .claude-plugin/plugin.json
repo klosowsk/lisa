@@ -1,7 +1,7 @@
 {
   "name": "lisa",
   "description": "Project planning with milestones, epics, and stories. Break down work, track progress, and implement with full context.",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "author": {
     "name": "Rodrigo Klosowski",
     "url": "https://rklosowski.com/"

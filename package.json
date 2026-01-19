@@ -1,6 +1,6 @@
 {
   "name": "smartlisa",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "description": "AI-powered planning system for Claude Code",
   "type": "module",
   "license": "MIT",

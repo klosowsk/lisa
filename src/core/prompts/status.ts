@@ -21,19 +21,39 @@ export interface OverviewState {
   stuckCount: number;
   feedbackCount: number;
   hasBlockedStories: boolean;
+  hasDiscoveryContext: boolean;
+  discoveryEntryCount: number;
 }
 
 export function getOverviewGuidance(state: OverviewState): AIGuidance {
-  const { stuckCount, feedbackCount, hasBlockedStories, storiesTotal, storiesCompleted } = state;
+  const {
+    stuckCount,
+    feedbackCount,
+    hasBlockedStories,
+    storiesTotal,
+    storiesCompleted,
+    milestonesCount,
+    epicsCount,
+    hasDiscoveryContext,
+  } = state;
   const hasAttentionItems = stuckCount > 0 || feedbackCount > 0 || hasBlockedStories;
 
+  // Determine project phase
+  const needsDiscovery = !hasDiscoveryContext && milestonesCount === 0;
+  const hasPlanning = milestonesCount > 0 || epicsCount > 0;
+  const hasStories = storiesTotal > 0;
+
   let situation: string;
-  if (storiesTotal === 0) {
-    situation = "Project initialized but no stories yet - continue planning";
+  if (needsDiscovery) {
+    situation = "Project initialized - run 'lisa discover' to start";
+  } else if (!hasPlanning) {
+    situation = "Discovery in progress - continue or start planning";
+  } else if (!hasStories) {
+    situation = "Planning in progress - generate stories when ready";
   } else if (storiesCompleted === storiesTotal) {
     situation = "All stories complete!";
   } else if (hasAttentionItems) {
-    situation = `Project in progress with ${stuckCount + feedbackCount} items needing attention`;
+    situation = `Project in progress - ${stuckCount + feedbackCount} item(s) need attention`;
   } else {
     situation = `Project in progress: ${storiesCompleted}/${storiesTotal} stories complete`;
   }
@@ -41,45 +61,74 @@ export function getOverviewGuidance(state: OverviewState): AIGuidance {
   const instructions: string[] = [];
   const commands: CommandSuggestion[] = [];
 
+  // For brand new projects, discovery is the only path forward
+  if (needsDiscovery) {
+    instructions.push("Run 'lisa discover' to start the discovery conversation");
+    commands.push({
+      command: "discover",
+      description: "Start discovery conversation",
+      when: "Required before planning",
+    });
+    return { situation, instructions, commands };
+  }
+
+  // Priority items
   if (stuckCount > 0) {
-    instructions.push(`Address ${stuckCount} stuck item(s) first`);
     commands.push({
       command: "feedback list",
       description: "View stuck items",
-      when: "To see what's blocked",
+      when: `${stuckCount} item(s) need attention`,
     });
-  }
-
-  if (feedbackCount > 0) {
-    instructions.push(`Review ${feedbackCount} pending feedback item(s)`);
   }
 
   if (hasBlockedStories) {
-    instructions.push("Some stories are blocked - check board for details");
     commands.push({
       command: "status board",
-      description: "View kanban board",
-      when: "To see blocked stories",
+      description: "View board with blocked stories",
+      when: "To resolve blockers",
     });
   }
 
-  if (!hasAttentionItems && storiesTotal > 0) {
-    instructions.push("Continue with available stories");
+  // Main options - always available based on project state
+  if (hasStories) {
     commands.push({
       command: "status board",
       description: "View kanban board",
-      when: "To pick next story",
+      when: "To work on stories",
     });
   }
 
-  if (storiesTotal === 0) {
-    instructions.push("Continue with milestone and epic planning");
+  // Discovery is always available (product evolves)
+  commands.push({
+    command: "discover",
+    description: "Continue product discovery",
+    when: "To refine understanding or explore new areas",
+  });
+
+  // Planning options
+  commands.push({
+    command: "plan milestones",
+    description: "View or add milestones",
+    when: "To add new features or phases",
+  });
+
+  if (milestonesCount > 0) {
     commands.push({
-      command: "plan milestones",
-      description: "View/edit milestones",
-      when: "To continue planning",
+      command: "plan epics",
+      description: "View or add epics",
+      when: "To break down milestones",
     });
   }
+
+  if (epicsCount > 0) {
+    commands.push({
+      command: "plan stories <epicId>",
+      description: "Generate stories for an epic",
+      when: "To create work items",
+    });
+  }
+
+  instructions.push("Ask user what they want to do, or pick based on project state");
 
   return { situation, instructions, commands };
 }

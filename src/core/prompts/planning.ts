@@ -23,23 +23,25 @@ export function getMilestonesGuidance(
   context: DiscoveryContext | null,
   index: MilestoneIndex | null
 ): AIGuidance {
+  const commands: CommandSuggestion[] = [];
+
   if (!index || index.milestones.length === 0) {
+    commands.push({
+      command: "plan add-milestone",
+      args: "--name '<name>' --description '<desc>'",
+      description: "Add a milestone",
+      when: "To create first milestone",
+    });
+    commands.push({
+      command: "discover",
+      description: "Continue discovery",
+      when: "To gather more context before planning",
+    });
+
     return {
-      situation: "No milestones defined yet - ready to create milestone structure",
-      instructions: [
-        "Based on the discovery context, propose milestones that fit the project scope",
-        "Small projects might need 2 milestones; larger ones might need 5+",
-        "Each milestone should represent a meaningful, deliverable phase",
-        "Experienced default: ~3 milestones (Foundation, Core Features, Polish)",
-      ],
-      commands: [
-        {
-          command: "plan addMilestone",
-          args: "{ name: '<name>', description: '<desc>' }",
-          description: "Add a milestone",
-          when: "For each milestone in your proposal",
-        },
-      ],
+      situation: "No milestones yet",
+      instructions: ["Ask user what they want to do"],
+      commands,
       context: {
         projectProblem: context?.problem,
         projectVision: context?.vision,
@@ -47,26 +49,37 @@ export function getMilestonesGuidance(
     };
   }
 
+  // Show epics command for each milestone
+  for (const m of index.milestones) {
+    commands.push({
+      command: "plan epics",
+      args: m.id,
+      description: `View/add epics for ${m.id}: ${m.name}`,
+      when: `To plan ${m.id}`,
+    });
+  }
+
+  commands.push({
+    command: "plan add-milestone",
+    args: "--name '<name>' --description '<desc>'",
+    description: "Add another milestone",
+    when: "To add new feature or phase",
+  });
+  commands.push({
+    command: "discover",
+    description: "Continue discovery",
+    when: "To refine understanding",
+  });
+  commands.push({
+    command: "status board",
+    description: "View kanban board",
+    when: "To work on stories",
+  });
+
   return {
-    situation: `${index.milestones.length} milestones defined - ready to plan epics`,
-    instructions: [
-      "Pick a milestone to work on (M1 recommended for new projects)",
-      "Add more milestones if needed, or proceed to epic planning",
-    ],
-    commands: [
-      {
-        command: "plan showEpics",
-        args: "{ milestoneId: 'M1' }",
-        description: "Plan epics for M1",
-        when: "To start epic planning",
-      },
-      {
-        command: "plan addMilestone",
-        args: "{ name: '<name>', description: '<desc>' }",
-        description: "Add another milestone",
-        when: "If more milestones are needed",
-      },
-    ],
+    situation: `${index.milestones.length} milestone(s) defined`,
+    instructions: ["Ask user what they want to do"],
+    commands,
   };
 }
 
@@ -78,24 +91,31 @@ export function getEpicsGuidance(
   milestone: Milestone,
   epics: Array<{ epic: Epic; status: DerivedEpicStatus }>
 ): AIGuidance {
+  const commands: CommandSuggestion[] = [];
+
   if (epics.length === 0) {
+    commands.push({
+      command: "plan add-epic",
+      args: `--milestone ${milestone.id} --name '<name>' --description '<desc>'`,
+      description: "Add an epic",
+      when: "To create first epic for this milestone",
+    });
+    commands.push({
+      command: "discover element",
+      args: `--element-type milestone --element-id ${milestone.id}`,
+      description: "Run milestone discovery",
+      when: "To gather more context about this milestone",
+    });
+    commands.push({
+      command: "plan milestones",
+      description: "View all milestones",
+      when: "To switch to a different milestone",
+    });
+
     return {
-      situation: `Planning epics for ${milestone.id}: ${milestone.name}`,
-      instructions: [
-        `Propose epics for ${milestone.id} based on its scope and complexity`,
-        "Focused milestones might need 2 epics; complex ones might need 5+",
-        "Each epic should be a coherent, independently plannable piece of work",
-        "Experienced default: ~2-3 epics per milestone",
-        "Ask user to review the milestone scope and suggest epics",
-      ],
-      commands: [
-        {
-          command: "plan addEpic",
-          args: `{ milestoneId: '${milestone.id}', name: '<name>', description: '<desc>' }`,
-          description: "Add an epic",
-          when: "For each epic you propose",
-        },
-      ],
+      situation: `${milestone.id}: ${milestone.name} - no epics yet`,
+      instructions: ["Ask user what they want to do"],
+      commands,
       context: {
         milestoneId: milestone.id,
         milestoneName: milestone.name,
@@ -104,37 +124,43 @@ export function getEpicsGuidance(
     };
   }
 
-  const incompleteEpics = epics.filter((e) => e.status !== "done");
-  const nextEpic = incompleteEpics[0];
-
-  if (nextEpic) {
-    return {
-      situation: `${epics.length} epics in ${milestone.id}, ${incompleteEpics.length} incomplete`,
-      instructions: [
-        `Continue with ${nextEpic.epic.id}: ${nextEpic.epic.name}`,
-        `Status: ${nextEpic.status}`,
-      ],
-      commands: [
-        {
-          command: "plan planEpic",
-          args: `{ epicId: '${nextEpic.epic.id}' }`,
-          description: `Plan ${nextEpic.epic.id}`,
-          when: "To continue with this epic",
-        },
-        {
-          command: "plan addEpic",
-          args: `{ milestoneId: '${milestone.id}', name: '<name>', description: '<desc>' }`,
-          description: "Add another epic",
-          when: "If more epics are needed",
-        },
-      ],
-    };
+  // Show plan command for each epic
+  for (const e of epics) {
+    commands.push({
+      command: "plan epic",
+      args: e.epic.id,
+      description: `Plan ${e.epic.id}: ${e.epic.name} [${e.status}]`,
+      when: `To work on ${e.epic.id}`,
+    });
   }
 
+  commands.push({
+    command: "plan add-epic",
+    args: `--milestone ${milestone.id} --name '<name>' --description '<desc>'`,
+    description: "Add another epic",
+    when: "To add new epic to this milestone",
+  });
+  commands.push({
+    command: "plan milestones",
+    description: "View all milestones",
+    when: "To switch milestones or add new one",
+  });
+  commands.push({
+    command: "status board",
+    description: "View kanban board",
+    when: "To work on stories",
+  });
+  commands.push({
+    command: "validate",
+    description: "Run validation",
+    when: "To check coverage and links",
+  });
+
+  const doneCount = epics.filter((e) => e.status === "done").length;
   return {
-    situation: `All epics in ${milestone.id} complete!`,
-    instructions: ["Move to the next milestone or validate the completed work"],
-    commands: [],
+    situation: `${milestone.id}: ${epics.length} epic(s), ${doneCount} complete`,
+    instructions: ["Ask user what they want to do"],
+    commands,
   };
 }
 
@@ -146,139 +172,149 @@ export function getEpicPlanningGuidance(
   ctx: EpicContext,
   nextStep: "prd" | "architecture" | "stories" | "complete"
 ): AIGuidance {
+  const commands: CommandSuggestion[] = [];
+  const allConstraints = [
+    ...(ctx.project.constraints?.constraints || []),
+    ...(ctx.milestoneDiscovery?.constraints || []),
+    ...(ctx.epicDiscovery?.constraints || []),
+  ];
+
+  // Common context for all steps
+  const contextData = {
+    epicId: ctx.epic.id,
+    epicName: ctx.epic.name,
+    epicDescription: ctx.epic.description,
+    milestoneId: ctx.milestone.id,
+    milestoneName: ctx.milestone.name,
+    projectProblem: ctx.project.discovery?.problem,
+    projectVision: ctx.project.discovery?.vision,
+    epicDiscovery: ctx.epicDiscovery
+      ? {
+          problem: ctx.epicDiscovery.problem,
+          scope: ctx.epicDiscovery.scope,
+          outOfScope: ctx.epicDiscovery.out_of_scope,
+          successCriteria: ctx.epicDiscovery.success_criteria,
+        }
+      : null,
+    constraints: allConstraints,
+    techStack: ctx.project.config?.stack,
+  };
+
   if (nextStep === "prd") {
-    const instructions = [
-      "Generate a PRD for this epic based on discovery context",
-      "The PRD should include:",
-      "  - Overview section",
-      "  - Requirements (E1.R1, E1.R2, etc.) with acceptance criteria",
-      "  - Out of scope section",
-      "  - Dependencies section",
-    ];
-
-    // Add context about epic discovery
-    if (ctx.epicDiscovery && ctx.epicDiscovery.status !== "skipped") {
-      instructions.push("Reference epic discovery context:");
-      if (ctx.epicDiscovery.problem) {
-        instructions.push(`  - Problem: ${ctx.epicDiscovery.problem.slice(0, 60)}...`);
-      }
-      if (ctx.epicDiscovery.scope.length > 0) {
-        instructions.push(`  - Scope: ${ctx.epicDiscovery.scope.join("; ")}`);
-      }
-    }
-
-    const commands: CommandSuggestion[] = [
-      {
-        command: "plan savePrd",
-        args: `{ epicId: '${ctx.epic.id}', content: '<markdown>' }`,
-        description: "Save PRD",
-        when: "After generating PRD content",
-      },
-    ];
-
-    // Suggest discovery if not done
+    commands.push({
+      command: "plan save-prd",
+      args: `--epic ${ctx.epic.id} --content '<markdown>'`,
+      description: "Save PRD",
+      when: "After generating PRD content",
+    });
     if (!ctx.epicDiscovery || ctx.epicDiscovery.status === "not_started") {
-      commands.unshift({
+      commands.push({
         command: "discover element",
-        args: `{ elementType: 'epic', elementId: '${ctx.epic.id}' }`,
-        description: "Run epic discovery first",
+        args: `--element-type epic --element-id ${ctx.epic.id}`,
+        description: "Run epic discovery",
         when: "To gather more context before PRD",
       });
     }
+    commands.push({
+      command: "plan epics",
+      args: ctx.milestone.id,
+      description: "Back to epics list",
+      when: "To switch to a different epic",
+    });
 
     return {
-      situation: `${ctx.epic.id} ready for PRD generation`,
-      instructions,
+      situation: `${ctx.epic.id}: needs PRD`,
+      instructions: ["Ask user what they want to do"],
       commands,
-      context: {
-        epicId: ctx.epic.id,
-        epicName: ctx.epic.name,
-        epicDescription: ctx.epic.description,
-        milestoneId: ctx.milestone.id,
-        milestoneName: ctx.milestone.name,
-        projectProblem: ctx.project.discovery?.problem,
-        projectVision: ctx.project.discovery?.vision,
-        epicDiscovery: ctx.epicDiscovery
-          ? {
-              problem: ctx.epicDiscovery.problem,
-              scope: ctx.epicDiscovery.scope,
-              outOfScope: ctx.epicDiscovery.out_of_scope,
-              successCriteria: ctx.epicDiscovery.success_criteria,
-            }
-          : null,
-        constraints: [
-          ...(ctx.project.constraints?.constraints || []),
-          ...(ctx.milestoneDiscovery?.constraints || []),
-          ...(ctx.epicDiscovery?.constraints || []),
-        ],
-      },
+      context: contextData,
     };
   }
 
   if (nextStep === "architecture") {
-    const allConstraints = [
-      ...(ctx.project.constraints?.constraints || []),
-      ...(ctx.milestoneDiscovery?.constraints || []),
-      ...(ctx.epicDiscovery?.constraints || []),
-    ];
+    commands.push({
+      command: "plan save-architecture",
+      args: `--epic ${ctx.epic.id} --content '<markdown>'`,
+      description: "Save architecture",
+      when: "After generating architecture",
+    });
+    commands.push({
+      command: "plan save-prd",
+      args: `--epic ${ctx.epic.id} --content '<markdown>'`,
+      description: "Update PRD",
+      when: "To revise requirements",
+    });
+    commands.push({
+      command: "plan epics",
+      args: ctx.milestone.id,
+      description: "Back to epics list",
+      when: "To switch to a different epic",
+    });
 
     return {
-      situation: `${ctx.epic.id} PRD complete, ready for architecture`,
-      instructions: [
-        "Read the PRD and generate architecture",
-        "Include data models, APIs, component structure",
-        "Reference requirements (E1.R1 → E1.A1)",
-        allConstraints.length > 0
-          ? `Consider ${allConstraints.length} constraints`
-          : "Check for any constraints in context",
-      ],
-      commands: [
-        {
-          command: "plan saveArchitecture",
-          args: `{ epicId: '${ctx.epic.id}', content: '<markdown>' }`,
-          description: "Save architecture",
-          when: "After generating architecture content",
-        },
-      ],
-      context: {
-        epicId: ctx.epic.id,
-        constraints: allConstraints,
-        techStack: ctx.project.config?.stack,
-      },
+      situation: `${ctx.epic.id}: PRD done, needs architecture`,
+      instructions: ["Ask user what they want to do"],
+      commands,
+      context: contextData,
     };
   }
 
   if (nextStep === "stories") {
+    commands.push({
+      command: "plan stories",
+      args: ctx.epic.id,
+      description: "Generate stories",
+      when: "To create stories from requirements",
+    });
+    commands.push({
+      command: "plan save-architecture",
+      args: `--epic ${ctx.epic.id} --content '<markdown>'`,
+      description: "Update architecture",
+      when: "To revise technical design",
+    });
+    commands.push({
+      command: "plan epics",
+      args: ctx.milestone.id,
+      description: "Back to epics list",
+      when: "To switch to a different epic",
+    });
+
     return {
-      situation: `${ctx.epic.id} architecture complete, ready for stories`,
-      instructions: [
-        "Generate stories that cover all requirements",
-        "Each story should have clear acceptance criteria",
-        "Link to requirements and architecture",
-        "Stories should be implementable in 1-3 days",
-      ],
-      commands: [
-        {
-          command: "plan showStories",
-          args: `{ epicId: '${ctx.epic.id}' }`,
-          description: "Generate stories",
-          when: "To start story generation",
-        },
-      ],
+      situation: `${ctx.epic.id}: architecture done, ready for stories`,
+      instructions: ["Ask user what they want to do"],
+      commands,
+      context: contextData,
     };
   }
 
+  // Complete
+  commands.push({
+    command: "validate epic",
+    args: ctx.epic.id,
+    description: "Validate epic",
+    when: "To check coverage and links",
+  });
+  commands.push({
+    command: "status board",
+    description: "View kanban board",
+    when: "To work on stories",
+  });
+  commands.push({
+    command: "plan epics",
+    args: ctx.milestone.id,
+    description: "Back to epics list",
+    when: "To work on another epic",
+  });
+  commands.push({
+    command: "plan milestones",
+    description: "View milestones",
+    when: "To add new milestone or switch",
+  });
+
   return {
-    situation: `${ctx.epic.id} all artifacts complete!`,
-    instructions: ["Run validation to check coverage and links"],
-    commands: [
-      {
-        command: "validate epic",
-        args: ctx.epic.id,
-        description: "Validate epic",
-        when: "To check requirements coverage",
-      },
-    ],
+    situation: `${ctx.epic.id}: all artifacts complete`,
+    instructions: ["Ask user what they want to do"],
+    commands,
+    context: contextData,
   };
 }
 
@@ -287,38 +323,49 @@ export function getEpicPlanningGuidance(
 // ============================================================================
 
 export function getStoriesGuidance(ctx: StoryContext): AIGuidance {
+  const commands: CommandSuggestion[] = [
+    {
+      command: "plan add-story",
+      args: `--epic ${ctx.epic.id} --title '<title>' --description '<desc>' --requirements 'R1,R2' --criteria 'c1,c2'`,
+      description: "Add a story",
+      when: "For each story to add",
+    },
+    {
+      command: "plan save-stories",
+      args: `--epic ${ctx.epic.id}`,
+      description: "Save all stories at once",
+      when: "If generating stories in batch",
+    },
+    {
+      command: "plan mark-stories-complete",
+      args: ctx.epic.id,
+      description: "Mark stories complete",
+      when: "When done adding stories",
+    },
+    {
+      command: "plan save-architecture",
+      args: `--epic ${ctx.epic.id} --content '<markdown>'`,
+      description: "Update architecture",
+      when: "To revise technical design",
+    },
+    {
+      command: "plan save-prd",
+      args: `--epic ${ctx.epic.id} --content '<markdown>'`,
+      description: "Update PRD",
+      when: "To revise requirements",
+    },
+    {
+      command: "validate epic",
+      args: ctx.epic.id,
+      description: "Validate epic",
+      when: "To check coverage",
+    },
+  ];
+
   return {
-    situation: `Generating stories for ${ctx.epic.id}: ${ctx.epic.name}`,
-    instructions: [
-      "Read the PRD and architecture",
-      "Generate stories that cover all requirements",
-      "Each story should:",
-      "  - Have clear acceptance criteria",
-      "  - Link to requirements (E1.R1, E1.R2)",
-      "  - Link to architecture (E1.A1)",
-      "  - Be implementable in 1-3 days",
-      "Add stories one by one or save all at once",
-    ],
-    commands: [
-      {
-        command: "plan addStory",
-        args: `{ epicId: '${ctx.epic.id}', title: '<title>', description: '<desc>', requirements: ['R1','R2'], criteria: ['c1','c2'] }`,
-        description: "Add a story",
-        when: "For each story",
-      },
-      {
-        command: "plan saveStories",
-        args: `{ epicId: '${ctx.epic.id}', stories: [...] }`,
-        description: "Save all stories at once",
-        when: "If you have the full list ready",
-      },
-      {
-        command: "plan markStoriesComplete",
-        args: `{ epicId: '${ctx.epic.id}' }`,
-        description: "Mark stories complete",
-        when: "After all stories are added",
-      },
-    ],
+    situation: `${ctx.epic.id}: generating stories`,
+    instructions: ["Ask user what they want to do"],
+    commands,
     context: {
       epicId: ctx.epic.id,
       requirements: ctx.requirements,
@@ -335,27 +382,37 @@ export function getStoriesGuidance(ctx: StoryContext): AIGuidance {
 // Add Epic Guidance (called after plan addEpic)
 // ============================================================================
 
-export function getAddEpicGuidance(epicId: string): AIGuidance {
+export function getAddEpicGuidance(epicId: string, milestoneId: string): AIGuidance {
+  const commands: CommandSuggestion[] = [
+    {
+      command: "discover element",
+      args: `--element-type epic --element-id ${epicId}`,
+      description: "Run epic discovery",
+      when: "To gather scope and constraints",
+    },
+    {
+      command: "plan epic",
+      args: epicId,
+      description: "Plan epic (PRD)",
+      when: "To start PRD generation",
+    },
+    {
+      command: "plan add-epic",
+      args: `--milestone ${milestoneId} --name '<name>' --description '<desc>'`,
+      description: "Add another epic",
+      when: "To add more epics first",
+    },
+    {
+      command: "plan epics",
+      args: milestoneId,
+      description: "View all epics",
+      when: "To see milestone overview",
+    },
+  ];
+
   return {
-    situation: `Epic ${epicId} created, ready for discovery or PRD`,
-    instructions: [
-      "Ask user if they want to run discovery for this epic",
-      "Discovery helps gather scope, constraints, and success criteria",
-      "If they skip, proceed directly to PRD generation",
-    ],
-    commands: [
-      {
-        command: "discover element",
-        args: `{ elementType: 'epic', elementId: '${epicId}' }`,
-        description: "Run epic discovery",
-        when: "To gather more context before PRD",
-      },
-      {
-        command: "plan epic",
-        args: epicId,
-        description: "Plan epic (PRD generation)",
-        when: "To skip discovery and proceed to PRD",
-      },
-    ],
+    situation: `Epic ${epicId} created`,
+    instructions: ["Ask user what they want to do next"],
+    commands,
   };
 }

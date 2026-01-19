@@ -395,11 +395,9 @@ export async function addEpic(
 
   const sections: OutputSection[] = [
     section.success(`Created epic ${epicId}: ${options.name}`),
-    section.blank(),
-    section.info("Next: Run discovery for this epic or proceed to PRD"),
   ];
 
-  return success({ epic }, sections, getAddEpicGuidance(epicId));
+  return success({ epic }, sections, getAddEpicGuidance(epicId, options.milestoneId));
 }
 
 export async function planEpic(

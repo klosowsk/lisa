@@ -46,51 +46,68 @@ export function getDiscoveryGuidance(
 
   // Discovery conversation - understanding the project context
   if (!hasSomeContext) {
-    instructions.push("Start a discovery conversation to deeply understand the project");
-    instructions.push("Capture the problem domain, users, values, and constraints");
-    instructions.push(`Ask the user: "${getStarterQuestion(gaps[0] || 'problem')}"`);
-    instructions.push("If this is an existing codebase, briefly acknowledge what you learned (1-2 sentences), then ask the question");
-    instructions.push("Focus on understanding, not on what to build next");
+    instructions.push(
+      "Start with: 'What problem are you trying to solve?' - this is PRODUCT discovery, not planning"
+    );
+    instructions.push(
+      "Do NOT ask about features, milestones, or technical implementation - focus on the problem space, users, and desired outcomes"
+    );
+    instructions.push(
+      `Areas to explore (${depth}): ${formatDiscoveryRoadmap(gaps, depth)}`
+    );
   } else {
-    instructions.push("Continue the discovery conversation naturally");
-    instructions.push("Run 'lisa status context' first to review what's been discovered so far");
-    instructions.push("Run 'lisa discover history' to see all Q&A entries recorded");
+    instructions.push("Continue discovery naturally - run 'lisa status context' to see what's been learned");
   }
 
-  instructions.push("Ask follow-up questions based on user's answers");
-  instructions.push("For short answers on important topics, probe deeper");
-  instructions.push("For detailed answers, acknowledge and move on");
+  instructions.push("Record insights with 'discover add-entry' as you learn important context");
+  instructions.push("Follow the user's lead on what to explore next or when to move to planning");
 
-  if (gaps.includes("other")) {
-    instructions.push("For research/benchmarks: use web search to find competitors and best practices");
+  // Build commands based on state - don't show irrelevant commands for init
+  const commands: CommandSuggestion[] = [];
+
+  // Only show context review commands if there's something to review
+  if (hasSomeContext) {
+    commands.push(
+      {
+        command: "status context",
+        description: "Review discovered context summary",
+        when: "To see what's been learned so far",
+      },
+      {
+        command: "discover history",
+        description: "View all Q&A entries recorded",
+        when: "To review the full discovery conversation",
+      }
+    );
   }
 
-  instructions.push("Record key insights as you go");
+  // Always show add-entry for recording insights
+  commands.push({
+    command: "discover add-entry",
+    args: "--category <cat> --question '<q>' --answer '<a>'",
+    description: "Record a discovery insight",
+    when: "After gathering important context",
+  });
 
-  // Always present - the AI should respond to user intent, not computed state
-  instructions.push(
-    "When user indicates what they want to do next (plan, add milestones/epics, continue discovery, etc.), follow their lead"
-  );
+  // Only show planning commands if there's some context to plan from
+  if (hasSomeContext) {
+    commands.push(
+      {
+        command: "plan milestones",
+        description: "View/create milestones",
+        when: "When user wants to structure work",
+      },
+      {
+        command: "plan add-milestone",
+        args: "--name '<name>' --description '<desc>'",
+        description: "Add a milestone directly",
+        when: "When user has a specific milestone in mind",
+      }
+    );
+  }
 
-  // Build commands - always include planning options
-  const commands: CommandSuggestion[] = [
-    {
-      command: "discover add-entry",
-      args: "--category <cat> --question '<q>' --answer '<a>'",
-      description: "Record a discovery insight",
-      when: "After gathering important context",
-    },
-    {
-      command: "plan milestones",
-      description: "View/create milestones",
-      when: "When user wants to structure work",
-    },
-    {
-      command: "plan add-milestone",
-      args: "--name '<name>' --description '<desc>'",
-      description: "Add a milestone directly",
-      when: "When user has a specific milestone in mind",
-    },
+  // Depth switching always available
+  commands.push(
     {
       command: "discover --deep",
       description: "Switch to deep discovery",
@@ -100,8 +117,8 @@ export function getDiscoveryGuidance(
       command: "discover --quick",
       description: "Switch to quick discovery",
       when: "If user wants to move faster",
-    },
-  ];
+    }
+  );
 
   return {
     situation,
@@ -124,17 +141,23 @@ export function getDiscoveryGuidance(
   };
 }
 
-function getStarterQuestion(category: string): string {
-  const starters: Record<string, string> = {
-    problem: "What problem are we solving?",
-    vision: "What does the ideal end state look like?",
-    users: "Who are the primary users?",
-    values: "What's the most important quality this solution must have?",
-    constraints: "What's your current tech stack and team setup?",
-    success: "How will we know if this is successful?",
-    other: "What existing solutions have you looked at?",
-  };
-  return starters[category] || starters.problem;
+// Discovery questions by category - maps category to starter question
+const DISCOVERY_QUESTIONS: Record<string, string> = {
+  problem: "What problem are we solving?",
+  vision: "What does the ideal end state look like?",
+  users: "Who are the primary users?",
+  values: "What's the most important quality this solution must have?",
+  constraints: "What's your current tech stack and team setup?",
+  success: "How will we know if this is successful?",
+  other: "What existing solutions have you looked at?",
+};
+
+function formatDiscoveryRoadmap(gaps: string[], _depth: DiscoveryDepth): string {
+  if (gaps.length === 0) return "All areas covered";
+
+  return gaps
+    .map((gap) => `${gap}: "${DISCOVERY_QUESTIONS[gap] || gap}"`)
+    .join("; ");
 }
 
 // ============================================================================
@@ -153,7 +176,7 @@ export function getAddEntryGuidance(): AIGuidance {
         command: "discover add-entry",
         args: "--category <cat> --question '<q>' --answer '<a>'",
         description: "Record another insight",
-        when: "After gathering context",
+        when: "After gathering discovery context",
       },
       {
         command: "plan milestones",
@@ -198,7 +221,6 @@ export function getElementDiscoveryGuidance(
   // Find unanswered questions
   const answeredQuestions = new Set(discovery.history.map((e) => e.question));
   const remaining = questions.filter((q) => !answeredQuestions.has(q.question));
-  const requiredRemaining = remaining.filter((q) => q.required);
 
   let situation: string;
   if (discovery.status === "complete") {
@@ -275,12 +297,12 @@ export function getNotInitializedGuidance(): AIGuidance {
   return {
     situation: "No Lisa project found in this directory",
     instructions: [
-      "Ask the user for a project name, then run 'discover init' to initialize",
+      "ONLY Ask the user for a project name and then run 'lisa discover init \"<name>\"' to initialize",
     ],
     commands: [
       {
         command: "discover init",
-        args: "{ name: '<project name>' }",
+        args: "--name '<project name>'",
         description: "Initialize Lisa project",
         when: "After getting the project name from user",
       },

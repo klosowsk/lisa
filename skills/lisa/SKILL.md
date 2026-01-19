@@ -14,14 +14,14 @@ Plan and organize projects into milestones, epics, and stories.
 
 2. **Present before creating.** When the user describes work to be done:
    - Summarize what you understood
-   - Propose the milestones, epics, or stories you plan to create
+   - Propose the milestones, epics, stories or artifacts you plan to create
    - Wait for user confirmation before running any `add-milestone`, `add-epic`, or `add-story` commands
    - Never auto-create artifacts without explicit approval
 
 ## Quick Start
 
 ```bash
-# Check if project exists
+# Check project state and get guidance on what to do next
 lisa status
 
 # New project - get name first, then:
@@ -31,16 +31,10 @@ lisa discover init "Project Name"
 lisa status board
 ```
 
-## New Project Flow
-
-1. Ask user for project name
-2. Run `lisa discover init "Project Name"`
-3. **Follow the INSTRUCTIONS section** in the output - it tells you what to do next
-
-## Existing Project
+## Workflow
 
 1. Run `lisa status` to see current state
-2. Follow the guidance in the output
+2. **Follow the INSTRUCTIONS section** in the output - it usually tells you what to do next or existing options
 
 ## Commands
 
@@ -66,4 +60,3 @@ lisa status board
 ## References
 
 - [commands.md](references/commands.md) - Full command reference
-- [examples.md](references/examples.md) - Workflow examples

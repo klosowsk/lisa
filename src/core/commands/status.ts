@@ -85,7 +85,7 @@ export async function overview(state: StateManager): Promise<CommandResult<Overv
     const sections: OutputSection[] = [
       section.info("No Lisa project found in this directory."),
       section.blank(),
-      section.info("Run 'discover init' to start planning."),
+      section.info("Run 'discover init' to start."),
     ];
     return success(null, sections, getNotInitializedGuidance());
   }
@@ -94,6 +94,9 @@ export async function overview(state: StateManager): Promise<CommandResult<Overv
   const index = await state.readMilestoneIndex();
   const feedbackQueue = await state.readFeedbackQueue();
   const stuckQueue = await state.readStuckQueue();
+  const discoveryContext = await state.readDiscoveryContext();
+  const discoveryHistory = await state.readDiscoveryHistory();
+  const constraints = await state.readConstraints();
 
   if (!project) {
     return error("Project not found.", "NOT_FOUND");
@@ -171,6 +174,11 @@ export async function overview(state: StateManager): Promise<CommandResult<Overv
     },
   };
 
+  // Calculate discovery progress
+  const hasDiscoveryContext = !!(discoveryContext?.problem || discoveryContext?.vision);
+  const discoveryEntryCount = discoveryHistory?.entries?.length || 0;
+  const hasConstraints = (constraints?.constraints?.length || 0) > 0;
+
   // Build output sections
   const sections: OutputSection[] = [
     section.header("Lisa Status"),
@@ -183,6 +191,26 @@ export async function overview(state: StateManager): Promise<CommandResult<Overv
     sections.push(section.dim(`  Focus: ${project.current_focus}`));
   }
   sections.push(section.blank());
+
+  // Discovery status (show prominently for new projects)
+  if (!hasDiscoveryContext && milestones.length === 0) {
+    sections.push(section.subheader("Discovery"));
+    sections.push(section.warning("  Not started - run 'lisa discover' to begin"));
+    sections.push(section.blank());
+  } else if (hasDiscoveryContext || discoveryEntryCount > 0) {
+    sections.push(section.subheader("Discovery"));
+    if (discoveryContext?.problem) {
+      sections.push(section.success(`  Problem: ${truncate(discoveryContext.problem, 60)}`));
+    }
+    if (discoveryContext?.vision) {
+      sections.push(section.success(`  Vision: ${truncate(discoveryContext.vision, 60)}`));
+    }
+    sections.push(section.dim(`  ${discoveryEntryCount} discovery entries recorded`));
+    if (hasConstraints) {
+      sections.push(section.dim(`  ${constraints?.constraints?.length} constraints defined`));
+    }
+    sections.push(section.blank());
+  }
 
   // Milestones
   if (milestones.length > 0) {
@@ -262,6 +290,8 @@ export async function overview(state: StateManager): Promise<CommandResult<Overv
     stuckCount: data.queues.stuckCount,
     feedbackCount: data.queues.feedbackCount,
     hasBlockedStories,
+    hasDiscoveryContext,
+    discoveryEntryCount,
   });
 
   return success(data, sections, aiGuidance);

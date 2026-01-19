@@ -176,7 +176,7 @@ function showDiscoverHelp(): void {
   console.log("  (none)              Start or continue discovery session");
   console.log("  init <name>         Initialize a new project");
   console.log("  status              Show discovery progress and gaps");
-  console.log("  complete            Mark discovery phase as complete");
+  console.log("  history             Show all discovery Q&A entries");
   console.log("  add-entry           Add a discovery entry (project-level)");
   console.log("  epic <id>           Start discovery for a specific epic");
   console.log("  milestone <id>      Start discovery for a milestone");
@@ -502,8 +502,8 @@ async function main(): Promise<void> {
             handleResult(result);
             break;
           }
-          case "complete": {
-            const result = await engine.discover.complete();
+          case "history": {
+            const result = await engine.discover.history();
             handleResult(result);
             break;
           }

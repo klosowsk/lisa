@@ -464,9 +464,10 @@ describe("formatter", () => {
     it("should output error message", () => {
       const result: CommandResult = {
         status: "error",
-        data: {},
+        data: null,
         sections: [],
         error: "Something went wrong",
+        errorCode: "ERROR",
       };
 
       formatError(result);
@@ -478,7 +479,7 @@ describe("formatter", () => {
     it("should output error code when present", () => {
       const result: CommandResult = {
         status: "error",
-        data: {},
+        data: null,
         sections: [],
         error: "Failed",
         errorCode: "NOT_FOUND",
@@ -489,16 +490,19 @@ describe("formatter", () => {
       expect(mockLog.mock.calls[1][0]).toContain("NOT_FOUND");
     });
 
-    it("should handle missing error message", () => {
+    it("should handle missing error message gracefully", () => {
+      // ErrorResult requires error and errorCode, but test the display behavior
       const result: CommandResult = {
         status: "error",
-        data: {},
+        data: null,
         sections: [],
+        error: "",
+        errorCode: "EMPTY",
       };
 
       formatError(result);
-      // No error message, so nothing logged
-      expect(mockLog).not.toHaveBeenCalled();
+      // Empty error message still logs the error marker
+      expect(mockLog).toHaveBeenCalled();
     });
   });
 
@@ -518,9 +522,10 @@ describe("formatter", () => {
     it("should call process.exit(1) for error results", () => {
       const result: CommandResult = {
         status: "error",
-        data: {},
+        data: null,
         sections: [],
         error: "Error occurred",
+        errorCode: "ERROR",
       };
 
       expect(() => handleResult(result)).toThrow("process.exit called");

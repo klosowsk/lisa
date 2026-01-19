@@ -9,77 +9,75 @@ User says: "Help me plan a todo app"
 ```bash
 # 1. Initialize the project
 lisa discover init "Todo App"
-
-# 2. Start discovery (ask about problem, users, goals)
-lisa discover
-
-# 3. Check discovery progress
-lisa discover status
-
-# 4. For comprehensive planning, use deep mode
-lisa discover --deep
+# 2. Follow the INSTRUCTIONS in the output (it will tell you to ask discovery questions)
 ```
 
 **Key points:**
-- Always ask user for the project name before initializing
-- Discovery is iterative - run it multiple times to fill gaps
-- Check status to see what's missing
+- Ask user for project name before initializing
+- After init, follow the AI guidance in the command output
+- The guidance will prompt you to start a discovery conversation
 
 ---
 
-## Example 2: Brownfield Project (Existing Codebase)
+## Example 2: Existing Codebase
 
 User says: "Help me plan features for my existing app"
 
 ```bash
-# 1. Initialize with existing codebase
+# 1. Initialize
 lisa discover init "My Existing App"
-
-# 2. Analyze the codebase first
-lisa discover codebase
-
-# 3. Continue with regular discovery
-lisa discover
+# 2. Follow the INSTRUCTIONS - acknowledge what you learned, then ask discovery questions
 ```
 
 **Key points:**
-- Run `codebase` analysis before general discovery
-- This captures existing patterns, tech stack, and structure
+- Briefly acknowledge what you learned from the codebase (1-2 sentences)
+- Then ask the discovery question (e.g., "What problem are we solving?")
+- Do NOT offer menu options - just ask the question
 
 ---
 
 ## Example 3: Creating the Roadmap
 
-User says: "Break this into milestones and epics"
+User says: "I have some tickets related to knowledge improvements... need to edit digests, massage prompts..."
 
+**Step 1: Summarize what you understood**
+> "I understand you have work around Knowledge V1 MVP with several areas:
+> - Editing knowledge evaluation digests
+> - Prompt improvements for interview questions
+> - New action set digests
+> - Deprecating old digest sections
+>
+> Here's what I propose to create:
+>
+> **Milestone: Knowledge V1 MVP**
+> - Epic 1: Digest Editing - ability to edit evaluation digests
+> - Epic 2: Interview Question Improvements - prompt massage for focus
+> - Epic 3: Action Set Digests - new digest type
+> - Epic 4: Digest Cleanup - deprecate pre-arrival sections
+>
+> Does this structure look right? Any adjustments?"
+
+**Step 2: Wait for user confirmation**
+
+**Step 3: Only after approval, create the artifacts**
 ```bash
-# 1. Check discovery is sufficient
-lisa discover status
-
-# 2. Generate/view milestones
-lisa plan milestones
-
-# 3. Add milestones manually if needed
 lisa plan add-milestone \
-  --name 'MVP' \
-  --description 'Core todo CRUD functionality'
+  --name 'Knowledge V1 MVP' \
+  --description 'Core knowledge system improvements including digest editing and cleanup'
 
-lisa plan add-milestone \
-  --name 'Collaboration' \
-  --description 'Shared lists and real-time sync'
-
-# 4. Generate epics for milestone
-lisa plan epics M1
-
-# 5. Add epics manually if needed
 lisa plan add-epic \
   --milestone M1 \
-  --name 'Task Management' \
-  --description 'Create, edit, delete, complete tasks'
+  --name 'Digest Editing' \
+  --description 'Enable editing of knowledge evaluation digests'
+# ... etc
 ```
 
 **Key points:**
-- Focus on one milestone at a time with `plan epics M1`
+- **ALWAYS present proposed structure before creating**
+- Summarize user's intent first
+- List milestones and epics you plan to create
+- Wait for explicit approval
+- Never auto-create artifacts
 
 ---
 

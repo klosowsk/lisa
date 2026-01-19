@@ -154,13 +154,13 @@ export class StateManager {
 
     // Create empty discovery files
     await this.writeDiscoveryContext({
+      users: [],
       values: [],
       success_criteria: [],
     });
     await this.writeConstraints({ constraints: [] });
     await this.writeDiscoveryHistory({
       entries: [],
-      is_complete: false,
     });
 
     // Create empty milestones index

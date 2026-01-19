@@ -6,6 +6,7 @@ import {
   setupDiscoveryComplete,
   setupMilestonesApproved,
   TestContext,
+  expectSuccess,
 } from "./test-helpers.js";
 
 describe("Plan Script Integration", () => {
@@ -548,9 +549,9 @@ describe("Engine Plan Commands", () => {
         epicId: "E1",
         content: prdContent,
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.saved).toBe(true);
+      expect(data.saved).toBe(true);
 
       const prd = await ctx.state.readPrd("E1", "auth");
       expect(prd).toContain("# E1: Authentication");
@@ -596,9 +597,9 @@ describe("Engine Plan Commands", () => {
         epicId: "E1",
         content: archContent,
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.saved).toBe(true);
+      expect(data.saved).toBe(true);
 
       const arch = await ctx.state.readArchitecture("E1", "auth");
       expect(arch).toContain("# Architecture");
@@ -628,10 +629,10 @@ describe("Engine Plan Commands", () => {
         requirements: ["R1"],
         criteria: ["Works correctly"],
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.story.title).toBe("New Feature");
-      expect(result.data.story.id).toMatch(/E1\.S\d+/);
+      expect(data.story.title).toBe("New Feature");
+      expect(data.story.id).toMatch(/E1\.S\d+/);
     });
 
     it("should update coverage map", async () => {
@@ -696,9 +697,9 @@ describe("Engine Plan Commands", () => {
         epicId: "E1",
         stories,
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.count).toBe(2);
+      expect(data.count).toBe(2);
     });
 
     it("should build coverage map from requirements", async () => {
@@ -734,19 +735,118 @@ describe("Engine Plan Commands", () => {
 
       expect(result.status).toBe("error");
     });
+
+    it("should default type to feature when not provided", async () => {
+      const stories = [
+        {
+          title: "Story without type",
+          description: "Description here",
+          requirements: ["R1"],
+          criteria: ["AC1"],
+        },
+      ];
+
+      const result = await ctx.engine.plan.saveStories({
+        epicId: "E1",
+        stories: stories as any,
+      });
+
+      expect(result.status).toBe("success");
+      const savedStories = await ctx.state.readStories("E1", "auth");
+      expect(savedStories?.stories[0].type).toBe("feature");
+    });
+
+    it("should accept criteria as alias for acceptance_criteria", async () => {
+      const stories = [
+        {
+          title: "Story with criteria alias",
+          description: "Description here",
+          criteria: ["Criterion 1", "Criterion 2"],
+        },
+      ];
+
+      const result = await ctx.engine.plan.saveStories({
+        epicId: "E1",
+        stories: stories as any,
+      });
+
+      expect(result.status).toBe("success");
+      const savedStories = await ctx.state.readStories("E1", "auth");
+      expect(savedStories?.stories[0].acceptance_criteria).toEqual(["Criterion 1", "Criterion 2"]);
+    });
+
+    it("should return validation error for missing required fields", async () => {
+      const stories = [
+        {
+          // Missing title and description
+          requirements: ["R1"],
+        },
+      ];
+
+      const result = await ctx.engine.plan.saveStories({
+        epicId: "E1",
+        stories: stories as any,
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.errorCode).toBe("VALIDATION_ERROR");
+      expect(result.error).toContain("title");
+    });
+
+    it("should return validation error for invalid type", async () => {
+      const stories = [
+        {
+          title: "Story with invalid type",
+          description: "Description",
+          type: "invalid_type",
+        },
+      ];
+
+      const result = await ctx.engine.plan.saveStories({
+        epicId: "E1",
+        stories: stories as any,
+      });
+
+      expect(result.status).toBe("error");
+      expect(result.errorCode).toBe("VALIDATION_ERROR");
+    });
+
+    it("should auto-generate story IDs when not provided", async () => {
+      const stories = [
+        {
+          title: "First story",
+          description: "Description 1",
+        },
+        {
+          title: "Second story",
+          description: "Description 2",
+        },
+      ];
+
+      const result = await ctx.engine.plan.saveStories({
+        epicId: "E1",
+        stories: stories as any,
+      });
+
+      expect(result.status).toBe("success");
+      const savedStories = await ctx.state.readStories("E1", "auth");
+      expect(savedStories?.stories[0].id).toBe("E1.S1");
+      expect(savedStories?.stories[1].id).toBe("E1.S2");
+    });
   });
 
   describe("plan.milestones edge cases", () => {
-    it("should return warning when discovery not complete", async () => {
-      // Reset discovery to incomplete
-      const history = await ctx.state.readDiscoveryHistory();
-      history!.is_complete = false;
-      await ctx.state.writeDiscoveryHistory(history!);
+    it("should return warning when no discovery context", async () => {
+      // Reset discovery context to empty
+      const context = await ctx.state.readDiscoveryContext();
+      context!.problem = undefined;
+      context!.vision = undefined;
+      await ctx.state.writeDiscoveryContext(context!);
 
       const result = await ctx.engine.plan.milestones();
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.discoveryComplete).toBe(false);
+      expect(data.discoveryComplete).toBe(false);
     });
 
     it("should show AI guidance when no milestones exist", async () => {
@@ -764,9 +864,9 @@ describe("Engine Plan Commands", () => {
 
     it("should determine next step based on artifact status", async () => {
       const result = await ctx.engine.plan.epic("E1");
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.nextStep).toBeDefined();
+      expect(data.nextStep).toBeDefined();
     });
 
     it("should throw for invalid epic", async () => {
@@ -782,9 +882,9 @@ describe("Engine Plan Commands", () => {
 
     it("should show existing stories", async () => {
       const result = await ctx.engine.plan.stories("E1");
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.stories.length).toBeGreaterThan(0);
+      expect(data.stories.length).toBeGreaterThan(0);
     });
 
     it("should return error for invalid epic", async () => {
@@ -805,10 +905,10 @@ describe("Engine Plan Commands", () => {
         name: "New Epic",
         description: "A new epic",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.epic.name).toBe("New Epic");
-      expect(result.data.epic.milestone).toBe("M1");
+      expect(data.epic.name).toBe("New Epic");
+      expect(data.epic.milestone).toBe("M1");
     });
 
     it("should return error for invalid milestone", async () => {
@@ -830,9 +930,9 @@ describe("Engine Plan Commands", () => {
 
     it("should show epics for milestone", async () => {
       const result = await ctx.engine.plan.epics("M1");
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.milestoneId).toBe("M1");
+      expect(data.milestoneId).toBe("M1");
     });
 
     it("should show all epics when no milestone specified", async () => {

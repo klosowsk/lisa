@@ -7,6 +7,7 @@ import {
   setupMilestonesApproved,
   setupEpicWithArtifacts,
   TestContext,
+  expectSuccess,
 } from "./test-helpers.js";
 
 describe("LisaEngine", () => {
@@ -29,10 +30,10 @@ describe("LisaEngine", () => {
     describe("overview", () => {
       it("should return project overview", async () => {
         const result = await ctx.engine.status.overview();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.project.name).toBe("Test Project");
-        expect(result.data.project.status).toBe("active");
+        expect(data.project.name).toBe("Test Project");
+        expect(data.project.status).toBe("active");
       });
 
       it("should include stats", async () => {
@@ -41,10 +42,11 @@ describe("LisaEngine", () => {
         await setupEpicWithArtifacts(ctx);
 
         const result = await ctx.engine.status.overview();
+        const data = expectSuccess(result);
 
-        expect(result.data.project.stats.epics).toBe(1);
-        expect(result.data.project.stats.stories).toBe(3);
-        expect(result.data.project.stats.completedStories).toBe(1);
+        expect(data.project.stats.epics).toBe(1);
+        expect(data.project.stats.stories).toBe(3);
+        expect(data.project.stats.completedStories).toBe(1);
       });
 
       it("should have sections for display", async () => {
@@ -65,16 +67,17 @@ describe("LisaEngine", () => {
 
       it("should return kanban board data", async () => {
         const result = await ctx.engine.status.board();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.columns).toBeDefined();
+        expect(data.columns).toBeDefined();
       });
 
       it("should group stories by status", async () => {
         const result = await ctx.engine.status.board();
+        const data = expectSuccess(result);
 
         // Check that columns have stories
-        const columns = result.data.columns;
+        const columns = data.columns;
         const hasStories = Object.values(columns).some((col: any) => col.length > 0);
         expect(hasStories).toBe(true);
       });
@@ -89,10 +92,10 @@ describe("LisaEngine", () => {
 
       it("should return story details", async () => {
         const result = await ctx.engine.status.story("E1.S1");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.story.id).toBe("E1.S1");
-        expect(result.data.story.title).toBe("Implement login API");
+        expect(data.story.id).toBe("E1.S1");
+        expect(data.story.title).toBe("Implement login API");
       });
 
       it("should return error for invalid story", async () => {
@@ -173,9 +176,9 @@ describe("LisaEngine", () => {
         const freshCtx = await createTestContext();
 
         const result = await freshCtx.engine.discover.init("New Project");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.project.name).toBe("New Project");
+        expect(data.project.name).toBe("New Project");
 
         await cleanupTestContext(freshCtx);
       });
@@ -212,27 +215,12 @@ describe("LisaEngine", () => {
       });
     });
 
-    describe("complete", () => {
-      it("should mark discovery as complete", async () => {
-        // First add some entries
-        await ctx.engine.discover.addEntry({
-          category: "problem",
-          question: "What problem?",
-          answer: "Test problem",
-        });
-
-        const result = await ctx.engine.discover.complete();
-
-        expect(result.status).toBe("success");
-      });
-    });
-
     describe("status", () => {
       it("should show discovery status", async () => {
         const result = await ctx.engine.discover.status();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.isComplete).toBeDefined();
+        expect(data.progress).toBeDefined();
       });
     });
   });
@@ -268,10 +256,10 @@ describe("LisaEngine", () => {
           name: "MVP",
           description: "Minimum viable product",
         });
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.milestone.id).toBe("M1");
-        expect(result.data.milestone.name).toBe("MVP");
+        expect(data.milestone.id).toBe("M1");
+        expect(data.milestone.name).toBe("MVP");
       });
     });
 
@@ -283,8 +271,9 @@ describe("LisaEngine", () => {
         });
 
         const milestones = await ctx.engine.plan.milestones();
-        expect(milestones.status).toBe("success");
-        expect(milestones.data.milestones.length).toBe(1);
+        const data = expectSuccess(milestones);
+
+        expect(data.milestones.length).toBe(1);
       });
     });
 
@@ -295,9 +284,9 @@ describe("LisaEngine", () => {
 
       it("should show epics for milestone", async () => {
         const result = await ctx.engine.plan.epics("M1");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.milestoneId).toBe("M1");
+        expect(data.milestoneId).toBe("M1");
       });
     });
 
@@ -312,10 +301,10 @@ describe("LisaEngine", () => {
           name: "User Auth",
           description: "Authentication system",
         });
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.epic.id).toBe("E1");
-        expect(result.data.epic.name).toBe("User Auth");
+        expect(data.epic.id).toBe("E1");
+        expect(data.epic.name).toBe("User Auth");
       });
     });
 
@@ -327,16 +316,17 @@ describe("LisaEngine", () => {
 
       it("should show epic planning status", async () => {
         const result = await ctx.engine.plan.epic("E1");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.epic.id).toBe("E1");
-        expect(result.data.artifacts).toBeDefined();
+        expect(data.epic.id).toBe("E1");
+        expect(data.artifacts).toBeDefined();
       });
 
       it("should indicate next step", async () => {
         const result = await ctx.engine.plan.epic("E1");
+        const data = expectSuccess(result);
 
-        expect(result.data.nextStep).toBeDefined();
+        expect(data.nextStep).toBeDefined();
       });
     });
 
@@ -348,10 +338,10 @@ describe("LisaEngine", () => {
 
       it("should show stories for epic", async () => {
         const result = await ctx.engine.plan.stories("E1");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.epicId).toBe("E1");
-        expect(result.data.stories.length).toBe(3);
+        expect(data.epicId).toBe("E1");
+        expect(data.stories.length).toBe(3);
       });
     });
   });
@@ -373,9 +363,9 @@ describe("LisaEngine", () => {
           storyId: "E1.S1",
           status: "done",
         });
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.newStatus).toBe("done");
+        expect(data.newStatus).toBe("done");
       });
 
       it("should mark story as blocked with reason", async () => {
@@ -384,10 +374,10 @@ describe("LisaEngine", () => {
           status: "blocked",
           reason: "Waiting for API",
         });
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.newStatus).toBe("blocked");
-        expect(result.data.reason).toBe("Waiting for API");
+        expect(data.newStatus).toBe("blocked");
+        expect(data.reason).toBe("Waiting for API");
       });
 
       it("should fail for invalid story", async () => {
@@ -407,9 +397,9 @@ describe("LisaEngine", () => {
           type: "blocker",
           message: "API is down",
         });
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.feedback.type).toBe("blocker");
+        expect(data.feedback.type).toBe("blocker");
       });
 
       it("should auto-block story for blocker feedback", async () => {
@@ -418,8 +408,9 @@ describe("LisaEngine", () => {
           type: "blocker",
           message: "API is down",
         });
+        const data = expectSuccess(result);
 
-        expect(result.data.markedBlocked).toBe(true);
+        expect(data.markedBlocked).toBe(true);
       });
     });
 
@@ -433,16 +424,16 @@ describe("LisaEngine", () => {
         });
 
         const result = await ctx.engine.feedback.list();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.pending.length).toBeGreaterThan(0);
+        expect(data.pending.length).toBeGreaterThan(0);
       });
 
       it("should return empty list when no feedback", async () => {
         const result = await ctx.engine.feedback.list();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.pending).toEqual([]);
+        expect(data.pending).toEqual([]);
       });
     });
 
@@ -456,15 +447,16 @@ describe("LisaEngine", () => {
         });
 
         const listResult = await ctx.engine.feedback.list();
-        const feedbackId = listResult.data.pending[0].id;
+        const listData = expectSuccess(listResult);
+        const feedbackId = listData.pending[0].id;
 
         const result = await ctx.engine.feedback.resolve({
           feedbackId,
           resolution: "Decided to show error message",
         });
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.resolved).toBe(true);
+        expect(data.resolved).toBe(true);
       });
     });
 
@@ -478,12 +470,13 @@ describe("LisaEngine", () => {
         });
 
         const listResult = await ctx.engine.feedback.list();
-        const feedbackId = listResult.data.pending[0].id;
+        const listData = expectSuccess(listResult);
+        const feedbackId = listData.pending[0].id;
 
         const result = await ctx.engine.feedback.dismiss(feedbackId);
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.dismissed).toBe(true);
+        expect(data.dismissed).toBe(true);
       });
     });
   });
@@ -502,58 +495,61 @@ describe("LisaEngine", () => {
     describe("all", () => {
       it("should run full validation", async () => {
         const result = await ctx.engine.validate.all();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.issues).toBeDefined();
-        expect(result.data.links).toBeDefined();
-        expect(result.data.coverage).toBeDefined();
+        expect(data.issues).toBeDefined();
+        expect(data.links).toBeDefined();
+        expect(data.coverage).toBeDefined();
       });
 
       it("should report no errors for valid project", async () => {
         const result = await ctx.engine.validate.all();
+        const data = expectSuccess(result);
 
-        expect(result.data.summary.errors).toBe(0);
+        expect(data.summary.errors).toBe(0);
       });
     });
 
     describe("links", () => {
       it("should validate links", async () => {
         const result = await ctx.engine.validate.links();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.links.summary).toBeDefined();
+        expect(data.links.summary).toBeDefined();
       });
 
       it("should report valid links", async () => {
         const result = await ctx.engine.validate.links();
+        const data = expectSuccess(result);
 
-        expect(result.data.links.summary.broken).toBe(0);
+        expect(data.links.summary.broken).toBe(0);
       });
     });
 
     describe("coverage", () => {
       it("should validate coverage", async () => {
         const result = await ctx.engine.validate.coverage();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.coverage.summary).toBeDefined();
+        expect(data.coverage.summary).toBeDefined();
       });
 
       it("should report 100% coverage for test data", async () => {
         const result = await ctx.engine.validate.coverage();
+        const data = expectSuccess(result);
 
-        expect(result.data.coverage.summary.coverage_percent).toBe(100);
+        expect(data.coverage.summary.coverage_percent).toBe(100);
       });
     });
 
     describe("epic", () => {
       it("should validate specific epic", async () => {
         const result = await ctx.engine.validate.epic("E1");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.epicId).toBe("E1");
-        expect(result.data.artifacts).toBeDefined();
-        expect(result.data.coverage).toBeDefined();
+        expect(data.epicId).toBe("E1");
+        expect(data.artifacts).toBeDefined();
+        expect(data.coverage).toBeDefined();
       });
 
       it("should fail for invalid epic", async () => {

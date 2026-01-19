@@ -330,3 +330,32 @@ export function getStoriesGuidance(ctx: StoryContext): AIGuidance {
     },
   };
 }
+
+// ============================================================================
+// Add Epic Guidance (called after plan addEpic)
+// ============================================================================
+
+export function getAddEpicGuidance(epicId: string): AIGuidance {
+  return {
+    situation: `Epic ${epicId} created, ready for discovery or PRD`,
+    instructions: [
+      "Ask user if they want to run discovery for this epic",
+      "Discovery helps gather scope, constraints, and success criteria",
+      "If they skip, proceed directly to PRD generation",
+    ],
+    commands: [
+      {
+        command: "discover element",
+        args: `{ elementType: 'epic', elementId: '${epicId}' }`,
+        description: "Run epic discovery",
+        when: "To gather more context before PRD",
+      },
+      {
+        command: "plan epic",
+        args: epicId,
+        description: "Plan epic (PRD generation)",
+        when: "To skip discovery and proceed to PRD",
+      },
+    ],
+  };
+}

@@ -8,58 +8,60 @@ user-invocable: true
 
 Plan and organize projects into milestones, epics, and stories.
 
+## Core Principles
+
+1. **Follow command output instructions.** Every Lisa command returns AI guidance with next steps. Read and follow them exactly.
+
+2. **Present before creating.** When the user describes work to be done:
+   - Summarize what you understood
+   - Propose the milestones, epics, or stories you plan to create
+   - Wait for user confirmation before running any `add-milestone`, `add-epic`, or `add-story` commands
+   - Never auto-create artifacts without explicit approval
+
 ## Quick Start
 
 ```bash
-# Check project status
+# Check if project exists
 lisa status
 
-# Start a new project
+# New project - get name first, then:
 lisa discover init "Project Name"
 
-# View the board
+# View board
 lisa status board
 ```
 
-## Workflow
+## New Project Flow
 
-### New Project
+1. Ask user for project name
+2. Run `lisa discover init "Project Name"`
+3. **Follow the INSTRUCTIONS section** in the output - it tells you what to do next
 
-1. **Ask for project name** - Confirm what they're building
-2. **Initialize**: `lisa discover init "Project Name"`
-3. **Check for existing code** - Read key files to understand patterns
-4. **Discovery conversation** - Natural Q&A about problem, vision, constraints
-   - For brownfield: suggest answers based on what you read
+## Existing Project
 
-### Existing Project
+1. Run `lisa status` to see current state
+2. Follow the guidance in the output
 
-1. **Check status**: `lisa status`
-2. **View board**: `lisa status board`
-3. **Add to plan** or **work on stories** as needed
-
-## Commands Reference
+## Commands
 
 | Action | Command |
 |--------|---------|
-| Project overview | `lisa status` |
-| Kanban board | `lisa status board` |
-| Story details | `lisa status show <id>` |
-| Start discovery | `lisa discover init "Name"` |
+| Status | `lisa status` |
+| Board | `lisa status board` |
+| Initialize | `lisa discover init "Name"` |
 | Continue discovery | `lisa discover` |
+| Add discovery entry | `lisa discover add-entry --category <cat> --question '<q>' --answer '<a>'` |
 | View milestones | `lisa plan milestones` |
 | Add milestone | `lisa plan add-milestone --name 'Name' --description 'Desc'` |
 | Add epic | `lisa plan add-epic --milestone M1 --name 'Name' --description 'Desc'` |
 | Generate stories | `lisa plan stories E1` |
 | Mark progress | `lisa feedback mark <id> <status>` |
-| Validate plan | `lisa validate` |
 
 ## ID Formats
 
-| Type | Format | Example |
-|------|--------|---------|
-| Milestone | `M#` | `M1` |
-| Epic | `E#` | `E1` |
-| Story | `E#.S#` | `E1.S2` |
+- Milestone: `M1`, `M2`
+- Epic: `E1`, `E2`
+- Story: `E1.S1`, `E1.S2`
 
 ## References
 

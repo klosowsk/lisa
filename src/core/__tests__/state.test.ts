@@ -91,7 +91,6 @@ describe("StateManager", () => {
       expect(context?.values).toEqual([]);
       expect(constraints?.constraints).toEqual([]);
       expect(history?.entries).toEqual([]);
-      expect(history?.is_complete).toBe(false);
     });
 
     it("should create default config", async () => {
@@ -180,12 +179,10 @@ describe("StateManager", () => {
         answer: "Planning is hard",
         category: "problem",
       });
-      history!.is_complete = true;
       await state.writeDiscoveryHistory(history!);
 
       const updated = await state.readDiscoveryHistory();
       expect(updated?.entries).toHaveLength(1);
-      expect(updated?.is_complete).toBe(true);
     });
 
   });

@@ -4,6 +4,7 @@ import * as path from "path";
 import * as os from "os";
 import { StateManager, createStateManager } from "../state.js";
 import { FileSystemStateAdapter } from "../../adapters/state/index.js";
+import { expectSuccess } from "./test-helpers.js";
 
 describe("Discover Script Integration", () => {
   let testDir: string;
@@ -66,11 +67,10 @@ describe("Discover Script Integration", () => {
   });
 
   describe("discovery status", () => {
-    it("should show incomplete status for new project", async () => {
+    it("should show empty history for new project", async () => {
       await state.initialize("Test");
 
       const history = await state.readDiscoveryHistory();
-      expect(history?.is_complete).toBe(false);
       expect(history?.entries).toEqual([]);
     });
 
@@ -166,25 +166,7 @@ describe("Discover Script Integration", () => {
     });
   });
 
-  describe("complete discovery", () => {
-    it("should mark discovery as complete", async () => {
-      await state.initialize("Test");
-
-      // Add some discovery data
-      const context = await state.readDiscoveryContext();
-      context!.problem = "Test problem";
-      await state.writeDiscoveryContext(context!);
-
-      const history = await state.readDiscoveryHistory();
-      history!.is_complete = true;
-      history!.completed = new Date().toISOString();
-      await state.writeDiscoveryHistory(history!);
-
-      const updated = await state.readDiscoveryHistory();
-      expect(updated?.is_complete).toBe(true);
-      expect(updated?.completed).toBeDefined();
-    });
-
+  describe("project status", () => {
     it("should update project status", async () => {
       await state.initialize("Test");
 
@@ -708,11 +690,11 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.element).not.toBeNull();
-      expect((result.data.element as any).id).toBe("E1");
-      expect(result.data.discovery).not.toBeNull();
+      expect(data.element).not.toBeNull();
+      expect((data.element as any).id).toBe("E1");
+      expect(data.discovery).not.toBeNull();
     });
 
     it("should start milestone discovery", async () => {
@@ -720,11 +702,11 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "milestone",
         elementId: "M1",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.element).not.toBeNull();
-      expect((result.data.element as any).id).toBe("M1");
-      expect(result.data.discovery).not.toBeNull();
+      expect(data.element).not.toBeNull();
+      expect((data.element as any).id).toBe("M1");
+      expect(data.discovery).not.toBeNull();
     });
 
     it("should return error for invalid epic", async () => {
@@ -772,8 +754,9 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const data = expectSuccess(result);
 
-      expect(result.data.discovery?.status).toBe("in_progress");
+      expect(data.discovery?.status).toBe("in_progress");
     });
   });
 
@@ -794,10 +777,10 @@ describe("Engine Element Discovery Commands", () => {
         question: "What problem does this epic solve?",
         answer: "Users need authentication",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.entry.category).toBe("problem");
-      expect(result.data.entry.answer).toBe("Users need authentication");
+      expect(data.entry.category).toBe("problem");
+      expect(data.entry.answer).toBe("Users need authentication");
     });
 
     it("should add entry to milestone discovery", async () => {
@@ -813,9 +796,9 @@ describe("Engine Element Discovery Commands", () => {
         question: "What is the goal of this milestone?",
         answer: "Build foundation",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.entry.category).toBe("vision");
+      expect(data.entry.category).toBe("vision");
     });
 
     it("should return error for invalid epic", async () => {
@@ -857,8 +840,9 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const readData = expectSuccess(readResult);
 
-      expect(readResult.data.discovery?.problem).toBe("Need secure login");
+      expect(readData.discovery?.problem).toBe("Need secure login");
     });
 
     it("should update success criteria from entry", async () => {
@@ -874,8 +858,9 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const readData = expectSuccess(readResult);
 
-      expect(readResult.data.discovery?.success_criteria).toContain("Users can login securely");
+      expect(readData.discovery?.success_criteria).toContain("Users can login securely");
     });
 
     it("should update scope from in-scope question", async () => {
@@ -891,8 +876,9 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const readData = expectSuccess(readResult);
 
-      expect(readResult.data.discovery?.scope).toContain("Login and logout");
+      expect(readData.discovery?.scope).toContain("Login and logout");
     });
 
     it("should update out_of_scope from out of scope question", async () => {
@@ -908,8 +894,9 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const readData = expectSuccess(readResult);
 
-      expect(readResult.data.discovery?.out_of_scope).toContain("Password reset");
+      expect(readData.discovery?.out_of_scope).toContain("Password reset");
     });
 
     it("should add constraints from constraints question", async () => {
@@ -925,9 +912,10 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const readData = expectSuccess(readResult);
 
-      expect(readResult.data.discovery?.constraints.length).toBeGreaterThan(0);
-      expect(readResult.data.discovery?.constraints[0].constraint).toBe("Need database setup first");
+      expect(readData.discovery?.constraints.length).toBeGreaterThan(0);
+      expect(readData.discovery?.constraints[0].constraint).toBe("Need database setup first");
     });
   });
 
@@ -945,15 +933,16 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "epic",
         elementId: "E1",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.completed).toBe(true);
+      expect(data.completed).toBe(true);
 
       const readResult = await ctx.engine.discover.element({
         elementType: "epic",
         elementId: "E1",
       });
-      expect(readResult.data.discovery?.status).toBe("complete");
+      const readData = expectSuccess(readResult);
+      expect(readData.discovery?.status).toBe("complete");
     });
 
     it("should mark milestone discovery as complete", async () => {
@@ -966,9 +955,9 @@ describe("Engine Element Discovery Commands", () => {
         elementType: "milestone",
         elementId: "M1",
       });
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.completed).toBe(true);
+      expect(data.completed).toBe(true);
     });
 
     it("should return error for epic without discovery", async () => {
@@ -1122,7 +1111,6 @@ describe("Backward Compatibility", () => {
       answer: "Test problem",
       category: "problem",
     });
-    history!.is_complete = true;
     await state.writeDiscoveryHistory(history!);
 
     // Verify project-level discovery still works
@@ -1130,6 +1118,6 @@ describe("Backward Compatibility", () => {
     const readHistory = await state.readDiscoveryHistory();
 
     expect(readContext?.problem).toBe("Test problem");
-    expect(readHistory?.is_complete).toBe(true);
+    expect(readHistory?.entries).toHaveLength(1);
   });
 });

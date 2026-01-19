@@ -13,7 +13,17 @@ const config = {
 const watch = process.argv.includes('--watch')
 
 if (watch) {
-  const ctx = await esbuild.context(config)
+  const ctx = await esbuild.context({
+    ...config,
+    plugins: [{
+      name: 'rebuild-notify',
+      setup(build) {
+        build.onEnd(result => {
+          console.log(`[${new Date().toLocaleTimeString()}] Build finished with ${result.errors.length} errors`)
+        })
+      }
+    }]
+  })
   await ctx.watch()
   console.log('Watching for changes...')
 } else {

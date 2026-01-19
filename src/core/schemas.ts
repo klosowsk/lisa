@@ -111,6 +111,7 @@ export type Value = z.infer<typeof ValueSchema>;
 export const DiscoveryContextSchema = z.object({
   problem: z.string().optional(),
   vision: z.string().optional(),
+  users: z.array(z.string()).default([]),
   values: z.array(ValueSchema).default([]),
   success_criteria: z.array(z.string()).default([]),
   gathered: z.string().datetime().optional(),
@@ -146,8 +147,6 @@ export type DiscoveryDepth = z.infer<typeof DiscoveryDepth>;
 export const DiscoveryHistorySchema = z.object({
   entries: z.array(DiscoveryHistoryEntrySchema).default([]),
   started: z.string().datetime().optional(),
-  completed: z.string().datetime().optional(),
-  is_complete: z.boolean().default(false),
   // Depth preference - affects which topics Claude explores
   depth_preference: DiscoveryDepth.optional(),
   // Last activity timestamp for continuous discovery
@@ -254,11 +253,14 @@ export type Epic = z.infer<typeof EpicSchema>;
 // Stories
 // ============================================================================
 
+export const StoryType = z.enum(["feature", "bug", "chore", "spike"]);
+export type StoryType = z.infer<typeof StoryType>;
+
 export const StorySchema = z.object({
   id: z.string(), // E1.S1, E1.S2, etc.
   title: z.string(),
   description: z.string(),
-  type: z.enum(["feature", "bug", "chore", "spike"]),
+  type: StoryType,
   requirements: z.array(z.string()).default([]), // E1.R1, E1.R2, etc.
   acceptance_criteria: z.array(z.string()).default([]),
   dependencies: z.array(z.string()).default([]), // Other story IDs
@@ -268,6 +270,38 @@ export const StorySchema = z.object({
   blocked_reason: z.string().optional(),
 });
 export type Story = z.infer<typeof StorySchema>;
+
+/**
+ * Input schema for creating stories via saveStories command.
+ * Has sensible defaults for fields that can be auto-generated.
+ */
+export const StoryInputSchema = z.object({
+  id: z.string().optional(), // Auto-generated if not provided
+  title: z.string().min(1, "Story title is required"),
+  description: z.string().min(1, "Story description is required"),
+  type: StoryType.default("feature"),
+  requirements: z.array(z.string()).default([]),
+  acceptance_criteria: z.array(z.string()).default([]).transform((arr) =>
+    // Also accept 'criteria' as alias
+    arr
+  ),
+  criteria: z.array(z.string()).optional(), // Alias for acceptance_criteria
+  dependencies: z.array(z.string()).default([]),
+  estimated_points: z.number().optional(),
+  status: StoryStatus.default("todo"),
+  assignee: z.string().nullable().default(null),
+  blocked_reason: z.string().optional(),
+}).transform((data) => {
+  // Merge criteria into acceptance_criteria if provided
+  const acceptance_criteria = data.criteria?.length
+    ? [...data.acceptance_criteria, ...data.criteria]
+    : data.acceptance_criteria;
+
+  // Remove the alias field and return clean Story shape
+  const { criteria, ...rest } = data;
+  return { ...rest, acceptance_criteria };
+});
+export type StoryInput = z.input<typeof StoryInputSchema>;
 
 export const StoriesFileSchema = z.object({
   epic_id: z.string(),

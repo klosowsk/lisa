@@ -73,6 +73,13 @@ lisa feedback mark E1.S2 blocked --reason "Describe the issue"
 
 **Important:** Never mark done without user confirmation.
 
+## Execution
+
+Run Lisa commands with:
+```bash
+lisa <command>  # if installed globally
+```
+
 ## Commands Reference
 
 | Action | Command |

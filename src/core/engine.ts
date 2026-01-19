@@ -144,11 +144,6 @@ export class LisaEngine {
     }) => discoverCommands.addEntry(this.state, options),
 
     /**
-     * Mark discovery as complete
-     */
-    complete: () => discoverCommands.complete(this.state),
-
-    /**
      * Show discovery status
      */
     status: () => discoverCommands.status(this.state),
@@ -179,6 +174,11 @@ export class LisaEngine {
       elementType: "milestone" | "epic";
       elementId: string;
     }) => discoverCommands.completeElement(this.state, options),
+
+    /**
+     * Show discovery history (all Q&A entries)
+     */
+    history: () => discoverCommands.history(this.state),
   };
 
   // ==========================================================================

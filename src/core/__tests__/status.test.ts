@@ -7,6 +7,7 @@ import {
   setupMilestonesApproved,
   setupEpicWithArtifacts,
   TestContext,
+  expectSuccess,
 } from "./test-helpers.js";
 import { overview } from "../commands/status.js";
 
@@ -65,12 +66,12 @@ describe("Status Script Integration", () => {
 
     it("should calculate stats dynamically from actual stories", async () => {
       const result = await overview(ctx.state);
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.project.stats.stories).toBe(3);
-      expect(result.data.project.stats.completedStories).toBe(1);
-      expect(result.data.project.stats.epics).toBe(1);
-      expect(result.data.project.stats.milestones).toBe(1);
+      expect(data.project.stats.stories).toBe(3);
+      expect(data.project.stats.completedStories).toBe(1);
+      expect(data.project.stats.epics).toBe(1);
+      expect(data.project.stats.milestones).toBe(1);
     });
 
     it("should show correct stats even when project.stats is stale", async () => {
@@ -86,13 +87,13 @@ describe("Status Script Integration", () => {
 
       // Overview should calculate dynamically, not use stale values
       const result = await overview(ctx.state);
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
       // Should reflect actual data, not stale project.stats
-      expect(result.data.project.stats.stories).toBe(3);
-      expect(result.data.project.stats.completedStories).toBe(1);
-      expect(result.data.project.stats.epics).toBe(1);
-      expect(result.data.project.stats.milestones).toBe(1);
+      expect(data.project.stats.stories).toBe(3);
+      expect(data.project.stats.completedStories).toBe(1);
+      expect(data.project.stats.epics).toBe(1);
+      expect(data.project.stats.milestones).toBe(1);
     });
 
     it("should update completed count when story status changes", async () => {
@@ -107,10 +108,10 @@ describe("Status Script Integration", () => {
       }
 
       const result = await overview(ctx.state);
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.project.stats.stories).toBe(3);
-      expect(result.data.project.stats.completedStories).toBe(2); // Now 2 done
+      expect(data.project.stats.stories).toBe(3);
+      expect(data.project.stats.completedStories).toBe(2); // Now 2 done
     });
 
     it("should count stories across multiple epics", async () => {
@@ -174,11 +175,11 @@ describe("Status Script Integration", () => {
       }
 
       const result = await overview(ctx.state);
+      const data = expectSuccess(result);
 
-      expect(result.status).toBe("success");
-      expect(result.data.project.stats.epics).toBe(2);
-      expect(result.data.project.stats.stories).toBe(5); // 3 from E1 + 2 from E2
-      expect(result.data.project.stats.completedStories).toBe(2); // 1 from E1 + 1 from E2
+      expect(data.project.stats.epics).toBe(2);
+      expect(data.project.stats.stories).toBe(5); // 3 from E1 + 2 from E2
+      expect(data.project.stats.completedStories).toBe(2); // 1 from E1 + 1 from E2
     });
   });
 
@@ -431,15 +432,8 @@ describe("Status Script Integration", () => {
         expect(context.constraints?.constraints[0].constraint).toBe("Must use TypeScript");
       });
 
-      it("should return null discovery when not complete", async () => {
-        // Reset discovery
-        const history = await ctx.state.readDiscoveryHistory();
-        if (history) {
-          history.is_complete = false;
-          history.completed = undefined;
-          await ctx.state.writeDiscoveryHistory(history);
-        }
-
+      it("should return null discovery when no context gathered", async () => {
+        // Reset discovery context
         const discContext = await ctx.state.readDiscoveryContext();
         if (discContext) {
           discContext.problem = undefined;
@@ -778,17 +772,17 @@ describe("Status Script Integration", () => {
     describe("status.board", () => {
       it("should return board with stories grouped by status", async () => {
         const result = await ctx.engine.status.board();
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
-        expect(result.data.columns).toBeDefined();
+        expect(data.columns).toBeDefined();
       });
 
       it("should filter by epic when provided", async () => {
         const result = await ctx.engine.status.board("E1");
+        const data = expectSuccess(result);
 
-        expect(result.status).toBe("success");
         // Should only have stories from E1
-        const allStories = Object.values(result.data.columns).flat() as any[];
+        const allStories = Object.values(data.columns).flat() as any[];
         for (const story of allStories) {
           expect(story.id).toMatch(/^E1\./);
         }

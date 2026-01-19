@@ -15,7 +15,7 @@ lisa discover [subcommand] [options]
 | *(none)* | Start or continue discovery session |
 | `init <name>` | Initialize new project |
 | `status` | Show discovery progress and gaps |
-| `complete` | Mark discovery phase complete |
+| `history` | Show all discovery Q&A entries |
 | `add-entry` | Add discovery entry manually |
 | `epic <id>` | Start discovery for specific epic |
 | `milestone <id>` | Start discovery for milestone |
@@ -32,7 +32,7 @@ lisa discover [subcommand] [options]
 
 | Option | Description |
 |--------|-------------|
-| `--category <cat>` | Category: `problem`, `goals`, `users`, `constraints`, `scope`, `technical`, `risks`, `success` |
+| `--category <cat>` | Category: `problem`, `vision`, `users`, `values`, `constraints`, `success`, `other` |
 | `--question '<q>'` | The discovery question |
 | `--answer '<a>'` | The answer/information |
 

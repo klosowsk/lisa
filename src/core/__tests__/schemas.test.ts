@@ -215,7 +215,6 @@ describe("DiscoveryHistorySchema", () => {
   it("should parse with defaults", () => {
     const result = DiscoveryHistorySchema.parse({});
     expect(result.entries).toEqual([]);
-    expect(result.is_complete).toBe(false);
   });
 
   it("should parse full history", () => {
@@ -229,12 +228,9 @@ describe("DiscoveryHistorySchema", () => {
         },
       ],
       started: "2024-01-15T10:00:00.000Z",
-      completed: "2024-01-15T11:00:00.000Z",
-      is_complete: true,
     };
     const result = DiscoveryHistorySchema.parse(history);
     expect(result.entries).toHaveLength(1);
-    expect(result.is_complete).toBe(true);
   });
 });
 

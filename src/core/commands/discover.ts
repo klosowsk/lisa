@@ -8,7 +8,6 @@ import { StateManager } from "../state.js";
 import {
   CommandResult,
   OutputSection,
-  AIGuidance,
   success,
   error,
   section,
@@ -29,7 +28,11 @@ import {
   Epic,
   Milestone,
 } from "../schemas.js";
-import { getDiscoveryGuidance, getElementDiscoveryGuidance } from "../prompts/discovery.js";
+import {
+  getDiscoveryGuidance,
+  getElementDiscoveryGuidance,
+  getAddEntryGuidance,
+} from "../prompts/discovery.js";
 
 // ============================================================================
 // Types
@@ -44,7 +47,6 @@ export interface DiscoveryStatusData {
     totalRequired: number;
     percent: number;
   };
-  isComplete: boolean;
 }
 
 export interface DiscoveryStartData {
@@ -180,15 +182,6 @@ const DISCOVERY_GUIDANCE_DATA: DiscoveryGuidanceData[] = [
   },
 ];
 
-// Legacy questions for backward compatibility
-const DISCOVERY_QUESTIONS = [
-  { id: "problem", category: "problem" as const, question: "What problem are we solving?", required: true },
-  { id: "vision", category: "vision" as const, question: "What does success look like?", required: true },
-  { id: "users", category: "users" as const, question: "Who are the primary users?", required: false },
-  { id: "value1", category: "values" as const, question: "What is the most important quality?", required: false },
-  { id: "success1", category: "success" as const, question: "How will we know if this is successful?", required: true },
-];
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
@@ -196,21 +189,27 @@ const DISCOVERY_QUESTIONS = [
 function checkCategoryHasContent(
   category: DiscoveryHistoryEntry["category"],
   context: DiscoveryContext | null,
-  constraints: Constraints | null
+  constraints: Constraints | null,
+  history: DiscoveryHistory | null
 ): boolean {
+  // Check if history has entries for this category
+  const hasHistoryEntry = history?.entries.some((e) => e.category === category) || false;
+
   switch (category) {
     case "problem":
-      return !!context?.problem;
+      return !!context?.problem || hasHistoryEntry;
     case "vision":
-      return !!context?.vision;
+      return !!context?.vision || hasHistoryEntry;
     case "users":
-      return false; // Stored in history
+      return (context?.users && context.users.length > 0) || hasHistoryEntry;
     case "values":
-      return (context?.values && context.values.length > 0) || false;
+      return (context?.values && context.values.length > 0) || hasHistoryEntry;
     case "constraints":
-      return (constraints?.constraints && constraints.constraints.length > 0) || false;
+      return (constraints?.constraints && constraints.constraints.length > 0) || hasHistoryEntry;
     case "success":
-      return (context?.success_criteria && context.success_criteria.length > 0) || false;
+      return (context?.success_criteria && context.success_criteria.length > 0) || hasHistoryEntry;
+    case "other":
+      return hasHistoryEntry;
     default:
       return false;
   }
@@ -219,13 +218,14 @@ function checkCategoryHasContent(
 function findDiscoveryGaps(
   context: DiscoveryContext | null,
   constraints: Constraints | null,
+  history: DiscoveryHistory | null,
   depth: DiscoveryDepth
 ): string[] {
   const gaps: string[] = [];
   const guidanceForDepth = DISCOVERY_GUIDANCE_DATA.filter((g) => g.includedIn.includes(depth));
 
   for (const guidance of guidanceForDepth) {
-    if (!checkCategoryHasContent(guidance.category, context, constraints)) {
+    if (!checkCategoryHasContent(guidance.category, context, constraints, history)) {
       gaps.push(guidance.category);
     }
   }
@@ -260,6 +260,7 @@ async function updateContextFromEntry(
   entry: DiscoveryHistoryEntry
 ): Promise<void> {
   const context = (await state.readDiscoveryContext()) || {
+    users: [],
     values: [],
     success_criteria: [],
   };
@@ -275,6 +276,13 @@ async function updateContextFromEntry(
 
     case "vision":
       context.vision = entry.answer;
+      context.gathered = now();
+      await state.writeDiscoveryContext(context);
+      break;
+
+    case "users":
+      if (!context.users) context.users = [];
+      context.users.push(entry.answer);
       context.gathered = now();
       await state.writeDiscoveryContext(context);
       break;
@@ -343,29 +351,12 @@ export async function init(
   const project = await state.initialize(projectName);
 
   const sections: OutputSection[] = [
-    section.header("Initializing Lisa"),
-    section.success(`Created .lisa/ directory`),
-    section.success(`Project: ${project.name}`),
-    section.success(`ID: ${project.id}`),
-    section.blank(),
-    section.info("Next step: Run discovery to gather project context"),
+    section.success(`Lisa initialized: ${project.name}`),
   ];
 
-  const aiGuidance: AIGuidance = {
-    situation: "Project initialized, ready to start discovery",
-    instructions: [
-      "Start a natural discovery conversation to gather project context",
-      "Ask about the problem being solved, vision, constraints, and success criteria",
-      "Keep it conversational - don't list upcoming steps or announce what you'll do",
-    ],
-    commands: [
-      {
-        command: "discover",
-        description: "Start or continue discovery conversation",
-        when: "To gather project context",
-      },
-    ],
-  };
+  // Jump straight to discovery guidance with fresh state
+  const defaultGaps = ["problem", "vision", "users", "values", "constraints", "success"];
+  const aiGuidance = getDiscoveryGuidance(null, null, null, "standard", defaultGaps, true);
 
   return success({ project: { id: project.id, name: project.name } }, sections, aiGuidance);
 }
@@ -383,20 +374,23 @@ export async function status(state: StateManager): Promise<CommandResult<Discove
   const constraints = await state.readConstraints();
   const history = await state.readDiscoveryHistory();
 
-  // Calculate completion
-  const answeredQuestions = new Set(history?.entries.map((e) => e.question) || []);
-  const requiredQuestions = DISCOVERY_QUESTIONS.filter((q) => q.required);
-  const answeredRequired = requiredQuestions.filter((q) =>
-    answeredQuestions.has(q.question)
-  ).length;
+  // Calculate completion using category-based approach (standard depth categories)
+  const coreCategories: DiscoveryHistoryEntry["category"][] = [
+    "problem",
+    "vision",
+    "users",
+    "values",
+    "constraints",
+    "success",
+  ];
+  const completedCategories = coreCategories.filter((cat) =>
+    checkCategoryHasContent(cat, context, constraints, history)
+  );
 
   const progress = {
-    answeredRequired,
-    totalRequired: requiredQuestions.length,
-    percent:
-      requiredQuestions.length > 0
-        ? Math.round((answeredRequired / requiredQuestions.length) * 100)
-        : 0,
+    answeredRequired: completedCategories.length,
+    totalRequired: coreCategories.length,
+    percent: Math.round((completedCategories.length / coreCategories.length) * 100),
   };
 
   const data: DiscoveryStatusData = {
@@ -404,37 +398,42 @@ export async function status(state: StateManager): Promise<CommandResult<Discove
     constraints,
     history,
     progress,
-    isComplete: history?.is_complete || false,
   };
 
   const sections: OutputSection[] = [
     section.header("Discovery Status"),
     section.subheader("Progress"),
-    section.progress(progress.answeredRequired, progress.totalRequired, "Required questions"),
+    section.progress(progress.answeredRequired, progress.totalRequired, "Core categories"),
     section.blank(),
     section.subheader("Context Gathered"),
   ];
 
-  if (context?.problem) {
-    sections.push(section.success(`Problem: ${context.problem.slice(0, 60)}...`));
+  if (checkCategoryHasContent("problem", context, constraints, history)) {
+    sections.push(section.success(`Problem: ${context?.problem?.slice(0, 60) || "(in history)"}${context?.problem && context.problem.length > 60 ? "..." : ""}`));
   } else {
     sections.push(section.dim("  Problem: Not yet defined"));
   }
 
-  if (context?.vision) {
-    sections.push(section.success(`Vision: ${context.vision.slice(0, 60)}...`));
+  if (checkCategoryHasContent("vision", context, constraints, history)) {
+    sections.push(section.success(`Vision: ${context?.vision?.slice(0, 60) || "(in history)"}${context?.vision && context.vision.length > 60 ? "..." : ""}`));
   } else {
     sections.push(section.dim("  Vision: Not yet defined"));
   }
 
-  if (context?.values && context.values.length > 0) {
-    sections.push(section.success(`Values: ${context.values.length} defined`));
+  if (checkCategoryHasContent("users", context, constraints, history)) {
+    sections.push(section.success(`Users: ${context?.users?.length || 0} defined`));
+  } else {
+    sections.push(section.dim("  Users: None defined"));
+  }
+
+  if (checkCategoryHasContent("values", context, constraints, history)) {
+    sections.push(section.success(`Values: ${context?.values?.length || 0} defined`));
   } else {
     sections.push(section.dim("  Values: None defined"));
   }
 
-  if (context?.success_criteria && context.success_criteria.length > 0) {
-    sections.push(section.success(`Success Criteria: ${context.success_criteria.length} defined`));
+  if (checkCategoryHasContent("success", context, constraints, history)) {
+    sections.push(section.success(`Success Criteria: ${context?.success_criteria?.length || 0} defined`));
   } else {
     sections.push(section.dim("  Success Criteria: None defined"));
   }
@@ -442,8 +441,8 @@ export async function status(state: StateManager): Promise<CommandResult<Discove
   sections.push(section.blank());
   sections.push(section.subheader("Constraints"));
 
-  if (constraints?.constraints && constraints.constraints.length > 0) {
-    for (const c of constraints.constraints) {
+  if (checkCategoryHasContent("constraints", context, constraints, history)) {
+    for (const c of constraints?.constraints || []) {
       sections.push(section.text(`  [${c.type}] ${c.constraint}`));
     }
   } else {
@@ -452,13 +451,56 @@ export async function status(state: StateManager): Promise<CommandResult<Discove
 
   sections.push(section.blank());
 
-  if (history?.is_complete) {
-    sections.push(section.success("Discovery is COMPLETE"));
+  // Show readiness based on whether we have sufficient context
+  const hasContext = checkCategoryHasContent("problem", context, constraints, history) ||
+    checkCategoryHasContent("vision", context, constraints, history);
+  if (hasContext && progress.percent >= 50) {
+    sections.push(section.success("Ready for planning - or continue adding context"));
   } else {
-    sections.push(section.warning("Discovery is INCOMPLETE"));
+    sections.push(section.info("Continue discovery to gather more context"));
   }
 
   return success(data, sections);
+}
+
+// ============================================================================
+// History Command - show all discovery Q&A entries
+// ============================================================================
+
+export interface DiscoveryHistoryData {
+  entries: DiscoveryHistoryEntry[];
+  count: number;
+}
+
+export async function history(
+  state: StateManager
+): Promise<CommandResult<DiscoveryHistoryData>> {
+  if (!(await state.isInitialized())) {
+    return error("No Lisa project found.", "NOT_INITIALIZED");
+  }
+
+  const historyData = await state.readDiscoveryHistory();
+  const entries = historyData?.entries || [];
+
+  const sections: OutputSection[] = [
+    section.header("Discovery History"),
+    section.info(`${entries.length} entries recorded`),
+    section.blank(),
+  ];
+
+  if (entries.length === 0) {
+    sections.push(section.dim("No discovery entries yet. Run 'lisa discover' to start."));
+  } else {
+    for (const entry of entries) {
+      const date = new Date(entry.timestamp).toLocaleDateString();
+      sections.push(section.subheader(`[${entry.category}] ${date}`));
+      sections.push(section.dim(`  Q: ${entry.question}`));
+      sections.push(section.text(`  A: ${entry.answer}`));
+      sections.push(section.blank());
+    }
+  }
+
+  return success({ entries, count: entries.length }, sections);
 }
 
 // ============================================================================
@@ -487,7 +529,7 @@ export async function start(
     await state.writeDiscoveryHistory(history);
   }
 
-  const gaps = findDiscoveryGaps(context, constraints, depth);
+  const gaps = findDiscoveryGaps(context, constraints, history, depth);
 
   const data: DiscoveryStartData = {
     depth,
@@ -555,7 +597,7 @@ export async function start(
   const guidanceForDepth = DISCOVERY_GUIDANCE_DATA.filter((g) => g.includedIn.includes(depth));
 
   for (const guidance of guidanceForDepth) {
-    const hasContent = checkCategoryHasContent(guidance.category, context, constraints);
+    const hasContent = checkCategoryHasContent(guidance.category, context, constraints, history);
     const icon = hasContent ? "✓" : "○";
     const statusText = hasContent ? "(has content)" : "(explore this)";
 
@@ -595,7 +637,7 @@ export async function addEntry(
   // Read existing history
   let history = await state.readDiscoveryHistory();
   if (!history) {
-    history = { entries: [], is_complete: false };
+    history = { entries: [] };
   }
 
   // Add new entry
@@ -621,57 +663,9 @@ export async function addEntry(
     section.success(`Added ${options.category} entry`),
   ];
 
-  return success({ entry }, sections);
+  return success({ entry }, sections, getAddEntryGuidance());
 }
 
-// ============================================================================
-// Complete Command
-// ============================================================================
-
-export async function complete(state: StateManager): Promise<CommandResult<{ completed: boolean }>> {
-  if (!(await state.isInitialized())) {
-    return error("No Lisa project found.", "NOT_INITIALIZED");
-  }
-
-  const history = await state.readDiscoveryHistory();
-  if (!history) {
-    return error("No discovery history found.", "NO_HISTORY");
-  }
-
-  history.is_complete = true;
-  history.completed = now();
-  history.last_active = now();
-  await state.writeDiscoveryHistory(history);
-
-  const sections: OutputSection[] = [
-    section.success("Discovery checkpoint saved!"),
-    section.blank(),
-    section.info("You can continue discovery anytime with: discover"),
-    section.info("Next step: Generate milestones with 'plan milestones'"),
-  ];
-
-  const aiGuidance: AIGuidance = {
-    situation: "Discovery marked complete, ready for milestone planning",
-    instructions: [
-      "Discovery is complete but can be continued anytime",
-      "Next step is to generate milestones based on discovery context",
-    ],
-    commands: [
-      {
-        command: "plan milestones",
-        description: "Generate milestones from discovery",
-        when: "To create the project roadmap",
-      },
-      {
-        command: "discover",
-        description: "Continue adding discovery context",
-        when: "If more context is needed",
-      },
-    ],
-  };
-
-  return success({ completed: true }, sections, aiGuidance);
-}
 
 // ============================================================================
 // Element Discovery Commands (Epic/Milestone)

@@ -8,7 +8,6 @@ import { StateManager } from "../state.js";
 import {
   CommandResult,
   OutputSection,
-  AIGuidance,
   success,
   error,
   section,
@@ -19,6 +18,8 @@ import {
   Epic,
   Story,
   StoriesFile,
+  StoryInput,
+  StoryInputSchema,
   DerivedEpicStatus,
   DerivedMilestoneStatus,
 } from "../schemas.js";
@@ -27,6 +28,7 @@ import {
   getEpicsGuidance,
   getEpicPlanningGuidance,
   getStoriesGuidance,
+  getAddEpicGuidance,
 } from "../prompts/planning.js";
 
 // ============================================================================
@@ -75,15 +77,13 @@ export async function showMilestones(state: StateManager): Promise<CommandResult
 
   const index = await state.readMilestoneIndex();
   const context = await state.readDiscoveryContext();
-  const history = await state.readDiscoveryHistory();
-
-  const discoveryComplete = history?.is_complete || false;
 
   const sections: OutputSection[] = [section.header("Milestones")];
 
-  // Check discovery status
-  if (!discoveryComplete) {
-    sections.push(section.warning("Discovery is not complete. Complete discovery first."));
+  // Check if we have some discovery context
+  const hasContext = !!context?.problem || !!context?.vision;
+  if (!hasContext) {
+    sections.push(section.warning("No discovery context found. Run discovery first."));
     sections.push(section.dim("  Run: discover"));
 
     return success(
@@ -399,30 +399,7 @@ export async function addEpic(
     section.info("Next: Run discovery for this epic or proceed to PRD"),
   ];
 
-  const aiGuidance: AIGuidance = {
-    situation: `Epic ${epicId} created, ready for discovery or PRD`,
-    instructions: [
-      "Ask user if they want to run discovery for this epic",
-      "Discovery helps gather scope, constraints, and success criteria",
-      "If they skip, proceed directly to PRD generation",
-    ],
-    commands: [
-      {
-        command: "discover element",
-        args: `{ elementType: 'epic', elementId: '${epicId}' }`,
-        description: "Run epic discovery",
-        when: "To gather more context before PRD",
-      },
-      {
-        command: "plan epic",
-        args: epicId,
-        description: "Plan epic (PRD generation)",
-        when: "To skip discovery and proceed to PRD",
-      },
-    ],
-  };
-
-  return success({ epic }, sections, aiGuidance);
+  return success({ epic }, sections, getAddEpicGuidance(epicId));
 }
 
 export async function planEpic(
@@ -772,7 +749,7 @@ export async function addStory(
 
 export async function saveStories(
   state: StateManager,
-  options: { epicId: string; stories: Story[] }
+  options: { epicId: string; stories: StoryInput[] }
 ): Promise<CommandResult<{ count: number }>> {
   const epicDirs = await state.listEpicDirs();
   const epicDir = epicDirs.find((d) => d.startsWith(`${options.epicId}-`));
@@ -781,17 +758,47 @@ export async function saveStories(
     return error(`Epic ${options.epicId} not found.`, "NOT_FOUND");
   }
 
+  // Validate all stories upfront
+  const validatedStories: Story[] = [];
+  const validationErrors: string[] = [];
+
+  for (let i = 0; i < options.stories.length; i++) {
+    const storyInput = options.stories[i];
+    const result = StoryInputSchema.safeParse(storyInput);
+
+    if (!result.success) {
+      const issues = result.error.issues.map((issue) => {
+        const path = issue.path.length > 0 ? `${issue.path.join(".")}: ` : "";
+        return `${path}${issue.message}`;
+      });
+      validationErrors.push(`Story ${i + 1} (${storyInput.title || "untitled"}): ${issues.join(", ")}`);
+    } else {
+      // Assign ID if not provided
+      const story: Story = {
+        ...result.data,
+        id: result.data.id || `${options.epicId}.S${i + 1}`,
+      };
+      validatedStories.push(story);
+    }
+  }
+
+  if (validationErrors.length > 0) {
+    const sections: OutputSection[] = [
+      section.error("Story validation failed:"),
+      ...validationErrors.map((err) => section.dim(`  • ${err}`)),
+      section.blank(),
+      section.info("Required fields: title, description"),
+      section.info("Optional fields: type (feature|bug|chore|spike), requirements, criteria, dependencies"),
+    ];
+    return error(validationErrors.join("\n"), "VALIDATION_ERROR", sections);
+  }
+
   const slug = epicDir.split("-").slice(1).join("-");
 
   // Build stories file
   const storiesFile: StoriesFile = {
     epic_id: options.epicId,
-    stories: options.stories.map((s, i) => ({
-      ...s,
-      id: s.id || `${options.epicId}.S${i + 1}`,
-      status: s.status || "todo",
-      assignee: s.assignee || null,
-    })),
+    stories: validatedStories,
     coverage: {},
     validation: {
       coverage_complete: false,

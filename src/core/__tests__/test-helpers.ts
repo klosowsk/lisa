@@ -4,11 +4,36 @@ import * as os from "os";
 import { StateManager, createStateManager } from "../state.js";
 import { FileSystemStateAdapter } from "../../adapters/state/index.js";
 import { createEngine, LisaEngine } from "../engine.js";
+import { CommandResult } from "../types.js";
 
 export interface TestContext {
   testDir: string;
   state: StateManager;
   engine: LisaEngine;
+}
+
+/**
+ * Assert that a command result is successful and return the data with proper typing.
+ * Throws an error if the result is not successful.
+ * Uses NonNullable to ensure TypeScript knows the data is not null.
+ */
+export function expectSuccess<T>(result: CommandResult<T>): NonNullable<T> {
+  if (result.status !== "success") {
+    throw new Error(`Expected success but got ${result.status}: ${result.error || "unknown error"}`);
+  }
+  // When status is "success", data is guaranteed to be T (not null)
+  return result.data as NonNullable<T>;
+}
+
+/**
+ * Assert that a command result is an error and return the error details.
+ * Throws if the result is not an error.
+ */
+export function expectError(result: CommandResult<unknown>): { error: string; errorCode: string } {
+  if (result.status !== "error") {
+    throw new Error(`Expected error but got ${result.status}`);
+  }
+  return { error: result.error, errorCode: result.errorCode };
 }
 
 export async function createTestContext(): Promise<TestContext> {
@@ -43,8 +68,6 @@ export async function setupDiscoveryComplete(ctx: TestContext) {
 
   const history = await ctx.state.readDiscoveryHistory();
   if (history) {
-    history.is_complete = true;
-    history.completed = new Date().toISOString();
     history.entries = [
       {
         timestamp: new Date().toISOString(),

@@ -28,6 +28,7 @@ import {
   getWhyGuidance,
   getHowGuidance,
 } from "../prompts/status.js";
+import { getNotInitializedGuidance } from "../prompts/discovery.js";
 
 // ============================================================================
 // Types
@@ -79,9 +80,14 @@ export interface StoryData {
 // Overview Command
 // ============================================================================
 
-export async function overview(state: StateManager): Promise<CommandResult<OverviewData>> {
+export async function overview(state: StateManager): Promise<CommandResult<OverviewData | null>> {
   if (!(await state.isInitialized())) {
-    return error("No Lisa project found. Run 'discover init' first.", "NOT_INITIALIZED");
+    const sections: OutputSection[] = [
+      section.info("No Lisa project found in this directory."),
+      section.blank(),
+      section.info("Run 'discover init' to start planning."),
+    ];
+    return success(null, sections, getNotInitializedGuidance());
   }
 
   const project = await state.readProject();

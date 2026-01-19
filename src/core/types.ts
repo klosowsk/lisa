@@ -69,27 +69,53 @@ export interface AIGuidance {
 }
 
 /**
- * The result of executing a command
+ * Base properties shared by all command results
  */
-export interface CommandResult<T = unknown> {
-  /** Whether the command succeeded, failed, or needs more input */
-  status: CommandStatus;
-
-  /** Command-specific data */
-  data: T;
-
+interface CommandResultBase {
   /** Sections to display (adapters format these) */
   sections: OutputSection[];
 
   /** AI guidance for what to do next (the prompt contract) */
   aiGuidance?: AIGuidance;
-
-  /** Error message if status is 'error' */
-  error?: string;
-
-  /** Error code for programmatic handling */
-  errorCode?: string;
 }
+
+/**
+ * Successful command result
+ */
+export interface SuccessResult<T> extends CommandResultBase {
+  status: "success";
+  data: T;
+  error?: undefined;
+  errorCode?: undefined;
+}
+
+/**
+ * Error command result
+ */
+export interface ErrorResult extends CommandResultBase {
+  status: "error";
+  data: null;
+  error: string;
+  errorCode: string;
+}
+
+/**
+ * Needs input command result
+ */
+export interface NeedsInputResult<T> extends CommandResultBase {
+  status: "needs_input";
+  data: T;
+  error?: undefined;
+  errorCode?: undefined;
+}
+
+/**
+ * The result of executing a command - discriminated union by status
+ */
+export type CommandResult<T = unknown> =
+  | SuccessResult<T>
+  | ErrorResult
+  | NeedsInputResult<T>;
 
 // ============================================================================
 // Command Types
@@ -197,7 +223,7 @@ export function success<T>(
   data: T,
   sections: OutputSection[] = [],
   aiGuidance?: AIGuidance
-): CommandResult<T> {
+): SuccessResult<T> {
   return {
     status: "success",
     data,
@@ -207,17 +233,18 @@ export function success<T>(
 }
 
 /**
- * Create an error command result
+ * Create an error command result.
+ * The result is typed as CommandResult<T> to allow it to be returned from any function.
  */
-export function error<T = null>(
+export function error<T = unknown>(
   message: string,
   code: string,
-  data: T = null as T
+  sections?: OutputSection[]
 ): CommandResult<T> {
   return {
     status: "error",
-    data,
-    sections: [{ type: "text", content: message, style: "error" }],
+    data: null,
+    sections: sections ?? [{ type: "text", content: message, style: "error" }],
     error: message,
     errorCode: code,
   };
@@ -230,7 +257,7 @@ export function needsInput<T>(
   data: T,
   sections: OutputSection[],
   aiGuidance: AIGuidance
-): CommandResult<T> {
+): NeedsInputResult<T> {
   return {
     status: "needs_input",
     data,

@@ -59,6 +59,7 @@ function createTestDiscoveryContext(): DiscoveryContext {
   return {
     problem: "Users struggle to track their tasks effectively",
     vision: "A seamless task management experience",
+    users: ["developers", "project managers"],
     values: [
       { id: "V1", name: "Simplicity", description: "Keep it simple", priority: 1 },
       { id: "V2", name: "Speed", description: "Fast interactions", priority: 2 },

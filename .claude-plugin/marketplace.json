@@ -1,0 +1,13 @@
+{
+  "name": "lisa",
+  "owner": {
+    "name": "Rodrigo Klosowski"
+  },
+  "plugins": [
+    {
+      "name": "lisa",
+      "source": ".",
+      "description": "Project planning with milestones, epics, and stories"
+    }
+  ]
+}

@@ -31,7 +31,11 @@ Lisa works as a Claude Code skill. Choose one installation method:
 
 **Via Plugin (Recommended)**
 ```bash
-/plugin install github:klosowsk/lisa
+# Add the marketplace
+/plugin marketplace add klosowsk/lisa
+
+# Install the plugin
+/plugin install lisa@lisa
 ```
 
 **As Project Skills** (anyone cloning repo gets them)

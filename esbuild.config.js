@@ -1,4 +1,7 @@
 import * as esbuild from 'esbuild'
+import { readFileSync } from 'fs'
+
+const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'))
 
 const config = {
   entryPoints: ['src/adapters/cli/index.ts'],
@@ -8,6 +11,12 @@ const config = {
   format: 'esm',
   outfile: 'dist/cli.js',
   packages: 'external',
+  define: {
+    'LISA_VERSION': JSON.stringify(pkg.version),
+    'LISA_NAME': JSON.stringify(pkg.name),
+    'LISA_HOMEPAGE': JSON.stringify(pkg.homepage),
+    'LISA_REPOSITORY': JSON.stringify(pkg.repository?.url),
+  },
 }
 
 const watch = process.argv.includes('--watch')

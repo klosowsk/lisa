@@ -93,6 +93,7 @@ function showHelp(): void {
   console.log("  plan         Create and manage roadmap artifacts");
   console.log("  feedback     Track progress and manage feedback items");
   console.log("  validate     Check plan integrity and coverage");
+  console.log("  version      Show Lisa version information");
   output.blank();
 
   output.subheader("Quick Start:");
@@ -412,6 +413,14 @@ async function main(): Promise<void> {
   // Global help (no command)
   if (!args.command && (args.flags.help || args.flags.h || process.argv.length <= 2)) {
     showHelp();
+    return;
+  }
+
+  // Version flag (no command)
+  if (!args.command && (args.flags.version || args.flags.v)) {
+    const engine = createEngine();
+    const result = await engine.version();
+    handleResult(result);
     return;
   }
 
@@ -831,6 +840,17 @@ async function main(): Promise<void> {
             break;
           }
         }
+        break;
+      }
+
+      // ======================================================================
+      // Version Command
+      // ======================================================================
+      case "version":
+      case "--version":
+      case "-v": {
+        const result = await engine.version();
+        handleResult(result);
         break;
       }
 

@@ -15,6 +15,7 @@ import * as discoverCommands from "./commands/discover.js";
 import * as planCommands from "./commands/plan.js";
 import * as feedbackCommands from "./commands/feedback.js";
 import * as validateCommands from "./commands/validate.js";
+import * as versionCommands from "./commands/version.js";
 import { Story, StoryStatus, FeedbackType } from "./schemas.js";
 
 /**
@@ -315,6 +316,15 @@ export class LisaEngine {
      */
     epic: (epicId: string) => validateCommands.validateEpic(this.state, { epicId }),
   };
+
+  // ==========================================================================
+  // Version Command
+  // ==========================================================================
+
+  /**
+   * Get version information
+   */
+  version = () => versionCommands.version();
 }
 
 /**

@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "lisa",
-      "source": ".",
+      "source": "./",
       "description": "Project planning with milestones, epics, and stories"
     }
   ]

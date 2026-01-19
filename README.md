@@ -1,5 +1,8 @@
 # Lisa
 
+[![npm version](https://img.shields.io/npm/v/smartlisa.svg)](https://www.npmjs.com/package/smartlisa)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 ```
           _     ___ ____    _
          | |   |_ _/ ___|  / \
